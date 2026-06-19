@@ -1,0 +1,5 @@
+1.環境:docker,django REST(後端)+React(前端),MySQL
+2.專案名稱:AIUMStore(目錄 D:\AIUMStore 不需重建)
+3.預留React Native for ios,Android App
+4.未來要上傳Cloud Run使用
+5.網站功能:會員登出入,購物車,結帳台,電子支附,產品種類,產品細項及價格,

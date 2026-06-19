@@ -1,0 +1,22 @@
+# Env
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+backend/staticfiles/
+backend/media/
+
+# Node
+node_modules/
+frontend/dist/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code local settings
+.claude/
