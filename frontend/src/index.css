@@ -40,6 +40,18 @@ body {
   padding: 2rem 1rem;
 }
 
+.filters {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.filters select {
+  padding: 0.4rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
 .product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -66,6 +78,17 @@ body {
 .product-detail img {
   max-width: 100%;
   border-radius: 8px;
+}
+
+.firm-name {
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .variants {

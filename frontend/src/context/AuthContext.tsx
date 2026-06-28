@@ -1,6 +1,14 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 
 import { api } from "../api/client";
+import type { UserRole } from "../types";
+
+interface MemberProfile {
+  level: number;
+  points: number;
+  total_spent: string;
+  discount_percent: string;
+}
 
 interface User {
   id: number;
@@ -8,6 +16,8 @@ interface User {
   email: string;
   phone: string;
   address: string;
+  role: UserRole;
+  member_profile: MemberProfile | null;
 }
 
 interface RegisterPayload {
@@ -22,6 +32,7 @@ interface AuthContextValue {
   login: (username: string, password: string) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -75,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser: fetchMe }}>
       {children}
     </AuthContext.Provider>
   );

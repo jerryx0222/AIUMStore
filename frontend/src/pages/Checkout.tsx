@@ -2,11 +2,13 @@ import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import type { Order } from "../types";
 
 export function CheckoutPage() {
   const { cart, refreshCart } = useCart();
+  const { refreshUser } = useAuth();
   const [address, setAddress] = useState("");
   const [method, setMethod] = useState("credit_card");
   const [order, setOrder] = useState<Order | null>(null);
@@ -34,6 +36,7 @@ export function CheckoutPage() {
       transaction_id: `TEST-${Date.now()}`,
     });
     setOrder(data);
+    await refreshUser();
   }
 
   if (order) {
@@ -41,6 +44,7 @@ export function CheckoutPage() {
       <div>
         <h1>訂單已建立</h1>
         <p>訂單編號: #{order.id}</p>
+        {Number(order.discount_amount) > 0 && <p>會員折扣: -NT$ {order.discount_amount}</p>}
         <p>總金額: NT$ {order.total_amount}</p>
         <p>付款狀態: {order.payment?.status}</p>
         {order.payment?.status === "pending" && (

@@ -12,14 +12,32 @@ class Order(models.Model):
         COMPLETED = "completed", "已完成"
         CANCELLED = "cancelled", "已取消"
 
+    class FulfillmentType(models.TextChoices):
+        DELIVERY = "delivery", "宅配到府"
+        PICKUP = "pickup", "到店取貨"
+
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="orders"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="orders",
+        null=True,
+        blank=True,
+        help_text="訪客(guest)結帳時無對應會員帳號",
     )
+    fulfillment_type = models.CharField(
+        "取貨方式",
+        max_length=20,
+        choices=FulfillmentType.choices,
+        default=FulfillmentType.DELIVERY,
+    )
+    guest_name = models.CharField("訪客姓名", max_length=100, blank=True)
+    guest_phone = models.CharField("訪客電話", max_length=20, blank=True)
     status = models.CharField(
         "狀態", max_length=20, choices=Status.choices, default=Status.PENDING
     )
     total_amount = models.DecimalField("總金額", max_digits=12, decimal_places=2, default=0)
-    shipping_address = models.CharField("收件地址", max_length=255)
+    discount_amount = models.DecimalField("折扣金額", max_digits=12, decimal_places=2, default=0)
+    shipping_address = models.CharField("收件地址", max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -55,12 +73,13 @@ class OrderItem(models.Model):
 
 
 class Payment(models.Model):
-    """電子支付紀錄，預留串接第三方金流服務商（如綠界 / Stripe / LINE Pay）"""
+    """付款紀錄：線上電子支付預留串接第三方金流(綠界/Stripe/LINE Pay)，到店取貨則由店員確認現場付款"""
 
     class Method(models.TextChoices):
         CREDIT_CARD = "credit_card", "信用卡"
         LINE_PAY = "line_pay", "LINE Pay"
         ATM = "atm", "ATM 轉帳"
+        STORE_CASH = "store_cash", "到店付款"
 
     class Status(models.TextChoices):
         PENDING = "pending", "待付款"
@@ -77,8 +96,8 @@ class Payment(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "電子支付"
-        verbose_name_plural = "電子支付"
+        verbose_name = "付款紀錄"
+        verbose_name_plural = "付款紀錄"
 
     def __str__(self):
         return f"訂單 #{self.order_id} 的付款"
