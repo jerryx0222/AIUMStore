@@ -5,6 +5,7 @@ from .views import (
     FavoriteDetailView,
     FavoriteListView,
     LogoutView,
+    ManagementDashboardView,
     MeView,
     RegisterView,
 )
@@ -17,4 +18,5 @@ urlpatterns = [
     path("me/", MeView.as_view(), name="me"),
     path("favorites/", FavoriteListView.as_view(), name="favorite-list"),
     path("favorites/<int:product_id>/", FavoriteDetailView.as_view(), name="favorite-detail"),
+    path("dashboard/", ManagementDashboardView.as_view(), name="management-dashboard"),
 ]

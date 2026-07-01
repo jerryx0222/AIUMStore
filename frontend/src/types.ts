@@ -1,4 +1,10 @@
-export type PersonLevel = "superuser" | "brand_owner" | "store_owner" | "store_clerk" | "member";
+export type PersonLevel =
+  | "superuser"
+  | "brand_owner"
+  | "franchise_master"
+  | "store_owner"
+  | "store_clerk"
+  | "member";
 
 export interface Category {
   id: number;
@@ -53,6 +59,8 @@ export interface StoreProductListing {
   franchise_brand_name: string;
   product: Product;
   stock: number;
+  actual_price: string | null;
+  price: string;
   is_active: boolean;
 }
 
@@ -61,13 +69,71 @@ export interface ManagedStoreProductListing {
   franchise_brand: number;
   product: number;
   stock: number;
+  actual_price: string | null;
   is_active: boolean;
+}
+
+export interface FranchiseListing {
+  id: number;
+  franchise_brand: number;
+  franchise_brand_name: string;
+  product: number;
+  product_name: string;
+  stock: number;
+  actual_price: string | null;
+  is_active: boolean;
+}
+
+export interface ManagedProduct {
+  id: number;
+  category: number;
+  name: string;
+  slug: string;
+  spec: string;
+  process: string;
+  suggested_price: string;
+  selling_price: string;
+  images: ProductImage[];
 }
 
 export interface StoreDashboard {
   revenue: string | number;
   order_count: number;
   top_products: { product_name: string; quantity_sold: number }[];
+}
+
+export interface PersonBrief {
+  id: number;
+  username: string;
+  name: string;
+  level: PersonLevel;
+  mobile: string;
+  phone: string;
+  email: string;
+}
+
+export interface StoreClerkGroup {
+  store_owner: PersonBrief;
+  store_name: string | null;
+  clerks: PersonBrief[];
+}
+
+export interface FranchiseMasterGroup {
+  franchise_master: PersonBrief;
+  franchised_brands: (Brand & { products: Product[] })[];
+  managed_store_owners: PersonBrief[];
+}
+
+export interface BrandOwnerGroup {
+  brand_owner: PersonBrief;
+  brand: Brand | null;
+  products: Product[];
+}
+
+export interface ManagementDashboard {
+  store_clerks: StoreClerkGroup[];
+  franchise_masters: FranchiseMasterGroup[];
+  brand_owners: BrandOwnerGroup[];
 }
 
 export interface CartItem {

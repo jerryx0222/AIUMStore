@@ -1,7 +1,22 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
+from products.serializers import BrandSerializer, ProductSerializer
+
 Person = get_user_model()
+
+
+class PersonBriefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Person
+        fields = ["id", "username", "name", "level", "mobile", "phone", "email"]
+
+
+class BrandWithProductsSerializer(BrandSerializer):
+    products = ProductSerializer(many=True, read_only=True)
+
+    class Meta(BrandSerializer.Meta):
+        fields = BrandSerializer.Meta.fields + ["products"]
 
 
 class PersonSerializer(serializers.ModelSerializer):
@@ -14,6 +29,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "username",
             "email",
             "level",
+            "is_superuser",
             "name",
             "mobile",
             "phone",
@@ -24,7 +40,7 @@ class PersonSerializer(serializers.ModelSerializer):
             "total_spent",
             "discount_percent",
         ]
-        read_only_fields = ["level", "member_level", "points", "total_spent"]
+        read_only_fields = ["level", "is_superuser", "member_level", "points", "total_spent"]
 
 
 class RegisterSerializer(serializers.ModelSerializer):

@@ -82,7 +82,7 @@ export function ProductDetailPage() {
             className={listing.id === selectedListing?.id ? "variant active" : "variant"}
             onClick={() => setSelectedListing(listing)}
           >
-            {listing.franchise_brand_name} - NT$ {listing.product.selling_price}（庫存{" "}
+            {listing.franchise_brand_name} - NT$ {listing.price}（庫存{" "}
             {listing.stock}）
           </button>
         ))}

@@ -6,6 +6,7 @@ import { CartPage } from "./pages/Cart";
 import { CheckoutPage } from "./pages/Checkout";
 import { FavoritesPage } from "./pages/Favorites";
 import { LoginPage } from "./pages/Login";
+import { ManagementDashboardPage } from "./pages/ManagementDashboard";
 import { OrdersPage } from "./pages/Orders";
 import { ProductDetailPage } from "./pages/ProductDetail";
 import { ProductsPage } from "./pages/Products";
@@ -31,9 +32,14 @@ function App() {
             <Route path="/orders" element={<OrdersPage />} />
             <Route path="/favorites" element={<FavoritesPage />} />
           </Route>
-          <Route element={<RoleRoute roles={["brand_owner", "store_owner", "superuser"]} />}>
+          <Route element={<RoleRoute roles={["store_owner"]} />}>
             <Route path="/store" element={<StoreDashboardPage />} />
             <Route path="/store/products" element={<StoreProductsPage />} />
+          </Route>
+          <Route
+            element={<RoleRoute roles={["store_owner", "franchise_master", "brand_owner"]} />}
+          >
+            <Route path="/management" element={<ManagementDashboardPage />} />
           </Route>
         </Routes>
       </main>

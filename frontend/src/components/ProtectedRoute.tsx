@@ -16,6 +16,7 @@ export function RoleRoute({ roles }: { roles: PersonLevel[] }) {
 
   if (loading) return <p>載入中...</p>;
   if (!user) return <Navigate to="/login" replace />;
-  if (!roles.includes(user.level)) return <p>無此頁面權限</p>;
+  // superuser 無使用限制，不受角色清單限制
+  if (!user.is_superuser && !roles.includes(user.level)) return <p>無此頁面權限</p>;
   return <Outlet />;
 }

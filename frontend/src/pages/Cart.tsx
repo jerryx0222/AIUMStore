@@ -43,7 +43,7 @@ export function CartPage() {
               <td>
                 {item.listing.product.name}（{item.listing.franchise_brand_name}）
               </td>
-              <td>NT$ {item.listing.product.selling_price}</td>
+              <td>NT$ {item.listing.price}</td>
               <td>
                 <input
                   type="number"

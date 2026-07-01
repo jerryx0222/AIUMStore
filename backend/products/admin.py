@@ -101,5 +101,5 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(StoreProductListing)
 class StoreProductListingAdmin(admin.ModelAdmin):
-    list_display = ["franchise_brand", "product", "stock", "is_active", "updated_at"]
+    list_display = ["franchise_brand", "product", "stock", "actual_price", "is_active", "updated_at"]
     list_filter = ["franchise_brand", "is_active"]

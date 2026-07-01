@@ -15,9 +15,13 @@ export function Navbar() {
         <Link to="/cart">購物車</Link>
         {user?.level === "member" && <Link to="/orders">我的訂單</Link>}
         {user?.level === "member" && <Link to="/favorites">我的最愛</Link>}
-        {(user?.level === "brand_owner" || user?.level === "store_owner" || user?.level === "superuser") && (
+        {(user?.is_superuser || user?.level === "store_owner") && (
           <Link to="/store">門市後台</Link>
         )}
+        {(user?.is_superuser ||
+          user?.level === "store_owner" ||
+          user?.level === "franchise_master" ||
+          user?.level === "brand_owner") && <Link to="/management">管理維護頁</Link>}
         {user ? (
           <>
             <span>

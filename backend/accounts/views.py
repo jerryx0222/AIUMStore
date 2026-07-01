@@ -7,9 +7,14 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from products.models import Product
-from products.serializers import ProductSerializer
+from products.serializers import BrandSerializer, ProductSerializer
 
-from .serializers import PersonSerializer, RegisterSerializer
+from .serializers import (
+    BrandWithProductsSerializer,
+    PersonBriefSerializer,
+    PersonSerializer,
+    RegisterSerializer,
+)
 
 Person = get_user_model()
 
@@ -83,3 +88,91 @@ class FavoriteDetailView(APIView):
         _require_member(request)
         request.user.favorite_products.remove(product_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ManagementDashboardView(APIView):
+    """依登入者角色顯示對應的管理維護頁資料：
+    店主看底下的店員；加盟主看代理的品牌(含產品)及管理的店主；
+    品牌主看該品牌的所有產品；superuser 看以上所有角色的資料"""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        manageable_levels = {
+            Person.Level.STORE_OWNER,
+            Person.Level.FRANCHISE_MASTER,
+            Person.Level.BRAND_OWNER,
+        }
+        if not user.is_superuser and user.level not in manageable_levels:
+            raise PermissionDenied("僅店主/加盟主/品牌主/系統管理員可檢視此頁")
+
+        show_store_owner = user.is_superuser or user.level == Person.Level.STORE_OWNER
+        show_franchise_master = user.is_superuser or user.level == Person.Level.FRANCHISE_MASTER
+        show_brand_owner = user.is_superuser or user.level == Person.Level.BRAND_OWNER
+
+        store_clerks = []
+        if show_store_owner:
+            store_owners = (
+                Person.objects.filter(level=Person.Level.STORE_OWNER)
+                if user.is_superuser
+                else [user]
+            )
+            for store_owner in store_owners:
+                store = getattr(store_owner, "owned_brand", None)
+                clerks = (
+                    Person.objects.filter(level=Person.Level.STORE_CLERK, employer_brand=store)
+                    if store
+                    else Person.objects.none()
+                )
+                store_clerks.append(
+                    {
+                        "store_owner": PersonBriefSerializer(store_owner).data,
+                        "store_name": store.name_zh if store else None,
+                        "clerks": PersonBriefSerializer(clerks, many=True).data,
+                    }
+                )
+
+        franchise_masters = []
+        if show_franchise_master:
+            masters = (
+                Person.objects.filter(level=Person.Level.FRANCHISE_MASTER)
+                if user.is_superuser
+                else [user]
+            )
+            for master in masters:
+                brands = master.franchised_brands.prefetch_related("products")
+                store_owners = master.managed_store_owners.all()
+                franchise_masters.append(
+                    {
+                        "franchise_master": PersonBriefSerializer(master).data,
+                        "franchised_brands": BrandWithProductsSerializer(brands, many=True).data,
+                        "managed_store_owners": PersonBriefSerializer(store_owners, many=True).data,
+                    }
+                )
+
+        brand_owners = []
+        if show_brand_owner:
+            owners = (
+                Person.objects.filter(level=Person.Level.BRAND_OWNER)
+                if user.is_superuser
+                else [user]
+            )
+            for owner in owners:
+                brand = getattr(owner, "owned_brand", None)
+                products = brand.products.all() if brand else Product.objects.none()
+                brand_owners.append(
+                    {
+                        "brand_owner": PersonBriefSerializer(owner).data,
+                        "brand": BrandSerializer(brand).data if brand else None,
+                        "products": ProductSerializer(products, many=True).data,
+                    }
+                )
+
+        return Response(
+            {
+                "store_clerks": store_clerks,
+                "franchise_masters": franchise_masters,
+                "brand_owners": brand_owners,
+            }
+        )

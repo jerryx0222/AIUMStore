@@ -24,15 +24,16 @@ class Brand(models.Model):
     website = models.URLField("網址", blank=True)
     note = models.TextField("備註", blank=True, help_text="純文字，用途後續再定義")
 
-    # 僅 brand_type=franchise_brand 使用
-    owner = models.ForeignKey(
+    # 唯一擁有者：brand_type=product_brand 時為品牌主，brand_type=franchise_brand 時為店主
+    # 品牌主/店主都只會唯一擁有一個品牌，故用 OneToOneField
+    owner = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        related_name="owned_brands",
-        verbose_name="門市負責人(品牌主/店主)",
+        related_name="owned_brand",
+        verbose_name="唯一擁有者(品牌主/店主)",
         null=True,
         blank=True,
-        help_text="僅加盟品牌使用，指向品牌主或店主",
+        help_text="產品品牌的唯一擁有者是品牌主，加盟品牌(門市)的唯一擁有者是店主",
     )
     carried_product_brands = models.ManyToManyField(
         "self",
@@ -155,7 +156,8 @@ class ProductImage(models.Model):
 
 
 class StoreProductListing(models.Model):
-    """門市商品上架：庫存與是否上架由店主(加盟品牌)決定，同一產品在不同門市可各自維護"""
+    """門市商品上架：庫存/實際價格/是否上架由店主(自己門市)或加盟主(其管理的所有門市)決定，
+    同一產品在不同門市可各自維護"""
 
     franchise_brand = models.ForeignKey(
         Brand,
@@ -168,6 +170,14 @@ class StoreProductListing(models.Model):
         Product, on_delete=models.CASCADE, related_name="store_listings", verbose_name="產品"
     )
     stock = models.PositiveIntegerField("庫存", default=0)
+    actual_price = models.DecimalField(
+        "實際價格",
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="門市實際售價，由店主或加盟主決定；未設定則採用產品的實售價格",
+    )
     is_active = models.BooleanField("上架中", default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -179,3 +189,7 @@ class StoreProductListing(models.Model):
 
     def __str__(self):
         return f"{self.franchise_brand} - {self.product.name}"
+
+    @property
+    def effective_price(self):
+        return self.actual_price if self.actual_price is not None else self.product.selling_price

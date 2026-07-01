@@ -103,8 +103,27 @@ export function StoreProductsPage() {
                 }
               />
             </label>
-            <button onClick={() => updateListing(listing, { stock: listing.stock })}>
-              儲存庫存
+            <label>
+              實際價格
+              <input
+                type="number"
+                placeholder={`預設 NT$ ${product?.suggested_price ?? "-"}`}
+                value={listing.actual_price ?? ""}
+                onChange={(e) =>
+                  setListings((prev) =>
+                    prev.map((l) =>
+                      l.id === listing.id ? { ...l, actual_price: e.target.value || null } : l
+                    )
+                  )
+                }
+              />
+            </label>
+            <button
+              onClick={() =>
+                updateListing(listing, { stock: listing.stock, actual_price: listing.actual_price })
+              }
+            >
+              儲存
             </button>
             <button onClick={() => updateListing(listing, { is_active: !listing.is_active })}>
               {listing.is_active ? "下架" : "上架"}

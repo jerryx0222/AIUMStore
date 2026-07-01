@@ -8,6 +8,7 @@ interface Person {
   username: string;
   email: string;
   level: PersonLevel;
+  is_superuser: boolean;
   name: string;
   mobile: string;
   phone: string;

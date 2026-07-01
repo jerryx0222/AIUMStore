@@ -7,13 +7,17 @@ from django.db import models
 class Person(AbstractUser):
     """人員：單表，不拆子類別，角色由 level 欄位區分。
 
-    對應 note.txt 的「人員」設計：superuser / 品牌主 / 店主 / 店員 / 會員 共用同一張表，
+    對應 note.txt 的「人員」設計：superuser / 品牌主 / 加盟主 / 店主 / 店員 / 會員 共用同一張表，
     各角色專屬欄位攤平放在這裡（不適用的角色留空）。guest 已取消，結帳一律需要人員帳號。
+
+    角色階層：品牌主(唯一擁有一個產品品牌/連鎖總部) -> 加盟主(加盟多個產品品牌，管理多個店主)
+    -> 店主(唯一經營一個加盟品牌/門市) -> 店員(隸屬於某個門市)。
     """
 
     class Level(models.TextChoices):
         SUPERUSER = "superuser", "系統管理員"
         BRAND_OWNER = "brand_owner", "品牌主"
+        FRANCHISE_MASTER = "franchise_master", "加盟主"
         STORE_OWNER = "store_owner", "店主"
         STORE_CLERK = "store_clerk", "店員"
         MEMBER = "member", "會員"
@@ -42,6 +46,25 @@ class Person(AbstractUser):
         verbose_name="所屬門市(加盟品牌)",
         null=True,
         blank=True,
+    )
+
+    # 僅 level=franchise_master 使用：加盟主可加盟多個產品品牌(連鎖總部)
+    franchised_brands = models.ManyToManyField(
+        "products.Brand",
+        blank=True,
+        related_name="franchise_masters",
+        verbose_name="加盟的產品品牌",
+        limit_choices_to={"brand_type": "product_brand"},
+    )
+    # 僅 level=store_owner 使用：管理該店主的加盟主
+    manager = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        related_name="managed_store_owners",
+        verbose_name="所屬加盟主",
+        null=True,
+        blank=True,
+        limit_choices_to={"level": "franchise_master"},
     )
 
     # 僅 level=member 使用：等級/點數/消費/喜好產品

@@ -21,9 +21,11 @@ class PersonAdmin(UserAdmin):
                     "address",
                     "note",
                     "employer_brand",
+                    "manager",
+                    "franchised_brands",
                 )
             },
         ),
         ("會員資料", {"fields": ("member_level", "points", "total_spent", "favorite_products")}),
     )
-    filter_horizontal = UserAdmin.filter_horizontal + ("favorite_products",)
+    filter_horizontal = UserAdmin.filter_horizontal + ("favorite_products", "franchised_brands")

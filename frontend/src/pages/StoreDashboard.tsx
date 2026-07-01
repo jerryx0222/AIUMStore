@@ -2,7 +2,6 @@ import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { api } from "../api/client";
-import { StoreSwitcher } from "../components/StoreSwitcher";
 import { useMyStores } from "../hooks/useMyStores";
 import type { Brand, StoreDashboard as StoreDashboardData } from "../types";
 
@@ -15,11 +14,10 @@ const emptyForm = {
 };
 
 export function StoreDashboardPage() {
-  const { stores, loading, currentStoreId, setCurrentStoreId, currentStore, reload } = useMyStores();
+  const { stores, loading, currentStoreId, currentStore, reload } = useMyStores();
   const [productBrands, setProductBrands] = useState<Brand[]>([]);
   const [dashboard, setDashboard] = useState<StoreDashboardData | null>(null);
   const [editing, setEditing] = useState(false);
-  const [addingStore, setAddingStore] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
@@ -41,11 +39,9 @@ export function StoreDashboardPage() {
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
-    const { data: newStore } = await api.post("/products/stores/", form);
+    await api.post("/products/stores/", form);
     setForm(emptyForm);
-    setAddingStore(false);
     await reload();
-    setCurrentStoreId(newStore.id);
   }
 
   async function handleUpdate(event: FormEvent) {
@@ -68,11 +64,6 @@ export function StoreDashboardPage() {
     setEditing(true);
   }
 
-  function startAddingStore() {
-    setForm(emptyForm);
-    setAddingStore(true);
-  }
-
   function toggleProductBrand(id: number) {
     setForm((prev) => ({
       ...prev,
@@ -84,8 +75,8 @@ export function StoreDashboardPage() {
 
   if (loading) return <p>載入中...</p>;
 
-  if (stores.length === 0 || addingStore || editing) {
-    const isCreate = stores.length === 0 || addingStore;
+  if (stores.length === 0 || editing) {
+    const isCreate = stores.length === 0;
     return (
       <form onSubmit={isCreate ? handleCreate : handleUpdate} className="auth-form">
         <h1>{isCreate ? "新增門市" : "編輯門市資料"}</h1>
@@ -125,14 +116,8 @@ export function StoreDashboardPage() {
         </fieldset>
         <div className="actions">
           <button type="submit">{isCreate ? "建立門市" : "儲存"}</button>
-          {stores.length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                setEditing(false);
-                setAddingStore(false);
-              }}
-            >
+          {!isCreate && (
+            <button type="button" onClick={() => setEditing(false)}>
               取消
             </button>
           )}
@@ -143,7 +128,6 @@ export function StoreDashboardPage() {
 
   return (
     <div>
-      <StoreSwitcher stores={stores} currentStoreId={currentStoreId} onChange={setCurrentStoreId} />
       <h1>{currentStore?.name_zh} 門市後台</h1>
       <p>
         掛載的產品品牌:{" "}
@@ -157,7 +141,6 @@ export function StoreDashboardPage() {
       <p>{currentStore?.note}</p>
       <div className="actions">
         <button onClick={startEditing}>編輯此門市資料</button>
-        <button onClick={startAddingStore}>新增門市</button>
       </div>
       <p>
         <Link to={`/store/products?store_id=${currentStoreId}`}>管理我的商品上架</Link>

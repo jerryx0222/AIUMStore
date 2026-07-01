@@ -69,23 +69,57 @@ class ProductSerializer(serializers.ModelSerializer):
         ]
 
 
+class ManagedProductSerializer(serializers.ModelSerializer):
+    """品牌主管理自己產品品牌底下的產品：新增/編輯/刪除，設定建議價格與相關內容(種類/規格/製程)。
+    實售價格(selling_price)不開放編輯，未指定時自動採用建議價格"""
+
+    images = ProductImageSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            "id",
+            "category",
+            "name",
+            "slug",
+            "spec",
+            "process",
+            "suggested_price",
+            "selling_price",
+            "images",
+        ]
+        read_only_fields = ["slug", "selling_price"]
+
+
 class StoreProductListingSerializer(serializers.ModelSerializer):
-    """門市商品上架：供顧客瀏覽某門市在賣的商品(含庫存/是否上架)"""
+    """門市商品上架：供顧客瀏覽某門市在賣的商品(含庫存/實際售價/是否上架)"""
 
     product = ProductSerializer(read_only=True)
     franchise_brand_name = serializers.CharField(source="franchise_brand.name_zh", read_only=True)
+    price = serializers.DecimalField(
+        source="effective_price", max_digits=10, decimal_places=2, read_only=True
+    )
 
     class Meta:
         model = StoreProductListing
-        fields = ["id", "franchise_brand", "franchise_brand_name", "product", "stock", "is_active"]
+        fields = [
+            "id",
+            "franchise_brand",
+            "franchise_brand_name",
+            "product",
+            "stock",
+            "actual_price",
+            "price",
+            "is_active",
+        ]
 
 
 class ManagedStoreProductListingSerializer(serializers.ModelSerializer):
-    """店主管理自己門市的商品上架：只調整庫存與是否上架，門市由後端依操作者身分帶入"""
+    """店主管理自己門市的商品上架：調整庫存、實際價格與是否上架，門市由後端依操作者身分帶入"""
 
     class Meta:
         model = StoreProductListing
-        fields = ["id", "franchise_brand", "product", "stock", "is_active"]
+        fields = ["id", "franchise_brand", "product", "stock", "actual_price", "is_active"]
         read_only_fields = ["franchise_brand"]
 
     def validate_product(self, product):
@@ -95,3 +129,24 @@ class ManagedStoreProductListingSerializer(serializers.ModelSerializer):
         ).exists():
             raise serializers.ValidationError("該門市未掛載此產品所屬的產品品牌")
         return product
+
+
+class FranchiseListingSerializer(serializers.ModelSerializer):
+    """加盟主管理其下所有店主門市的商品：只能調整實際價格與是否上下架，不可動庫存或新增/刪除上架項目"""
+
+    franchise_brand_name = serializers.CharField(source="franchise_brand.name_zh", read_only=True)
+    product_name = serializers.CharField(source="product.name", read_only=True)
+
+    class Meta:
+        model = StoreProductListing
+        fields = [
+            "id",
+            "franchise_brand",
+            "franchise_brand_name",
+            "product",
+            "product_name",
+            "stock",
+            "actual_price",
+            "is_active",
+        ]
+        read_only_fields = ["franchise_brand", "product", "stock"]

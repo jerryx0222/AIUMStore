@@ -169,3 +169,121 @@ body {
 button {
   cursor: pointer;
 }
+
+/* ERP 風格：僅套用於「管理維護頁」，模仿傳統企業軟體(深藍/淺灰、方框、格線)配色 */
+.erp-page {
+  background: #dce6f1;
+  border: 1px solid #7f9db9;
+  padding: 1rem;
+  font-family: "Segoe UI", "Noto Sans TC", sans-serif;
+  color: #1b2a3a;
+}
+
+.erp-page h1 {
+  background: #1b3a6b;
+  color: #fff;
+  margin: -1rem -1rem 1rem;
+  padding: 0.6rem 1rem;
+  font-size: 1.1rem;
+  border-bottom: 2px solid #0f2444;
+}
+
+.erp-panel {
+  background: #fff;
+  border: 1px solid #7f9db9;
+  margin-bottom: 1rem;
+}
+
+.erp-panel-title {
+  background: linear-gradient(#eef3fa, #dce6f1);
+  color: #1b3a6b;
+  font-weight: bold;
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid #7f9db9;
+}
+
+.erp-panel-body {
+  padding: 0.75rem;
+}
+
+.erp-group {
+  border: 1px solid #a9b7c6;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  background: #f7fafd;
+}
+
+.erp-group-title {
+  color: #1b3a6b;
+  font-weight: bold;
+  border-bottom: 1px solid #c3d2e0;
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.erp-page input,
+.erp-page select,
+.erp-page textarea {
+  border: 1px solid #7f9db9;
+  border-radius: 0;
+  padding: 0.35rem 0.5rem;
+  background: #fff;
+  font-family: inherit;
+}
+
+.erp-page input:focus,
+.erp-page select:focus,
+.erp-page textarea:focus {
+  outline: 2px solid #4a86c8;
+  outline-offset: -1px;
+}
+
+.erp-page button {
+  background: linear-gradient(#f5f8fb, #dce6f1);
+  border: 1px solid #7f9db9;
+  border-radius: 2px;
+  color: #1b3a6b;
+  padding: 0.35rem 0.75rem;
+  font-weight: 600;
+}
+
+.erp-page button:hover {
+  background: linear-gradient(#eef3fa, #c9d9ea);
+}
+
+.erp-page button:active {
+  background: #b8cce0;
+}
+
+.erp-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.erp-table th {
+  background: linear-gradient(#eef3fa, #dce6f1);
+  color: #1b3a6b;
+  border: 1px solid #7f9db9;
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+}
+
+.erp-table td {
+  border: 1px solid #c3d2e0;
+  padding: 0.4rem 0.6rem;
+}
+
+.erp-table tr:nth-child(even) td {
+  background: #f2f6fa;
+}
+
+.erp-statusbar {
+  background: #dce6f1;
+  border-top: 1px solid #7f9db9;
+  padding: 0.4rem 0.75rem;
+  color: #1b3a6b;
+  font-size: 0.85rem;
+  display: flex;
+  justify-content: space-between;
+}

@@ -62,7 +62,7 @@ class CheckoutView(APIView):
         subtotal = Decimal("0")
         for cart_item in cart.items.all():
             listing = cart_item.listing
-            price = listing.product.selling_price
+            price = listing.effective_price
             OrderItem.objects.create(
                 order=order,
                 listing=listing,

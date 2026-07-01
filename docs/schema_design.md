@@ -1,11 +1,29 @@
-# AIUMStore 類別及資料庫重新設計 (v2)
+# AIUMStore 類別及資料庫重新設計 (v3)
 
-依 [note.txt](../note.txt) 第 17~27 行設計，經以下決議調整（相對 v1 的變更見文末）：
+依 [note.txt](../note.txt) 第 17~27 行設計，經以下決議調整（相對 v1 的變更見文末，v3 變更見「角色階層」一節）：
 
 - **取消 guest**：不再有匿名訪客結帳，`Order` 不再保留 `guest_name`/`guest_phone`，結帳一律需要 `人員`（至少是會員）帳號。
 - **取消子類別**：不使用 Django multi-table inheritance。`人員`與`品牌`各自都只有「一張表」，角色/類型用欄位（`level` / `brand_type`）區分，角色專屬欄位直接攤平放在同一張表上（nullable）。
 - **備註一律存文字**：`note` 欄位單純存文字，不做結構化解析；其實際用途之後再定義。
 - **庫存與上架與否由店主決定**：這兩個屬性不放在 `產品`（HQ 主檔）上，而是放在「門市（加盟品牌）× 產品」的關聯表上，由店主維護。
+- **v3 新增「加盟主」角色**：見下方「角色階層」。
+
+---
+
+## 角色階層 (v3)
+
+```
+品牌主 (brand_owner)  ──唯一擁有──▶ 產品品牌(連鎖總部)
+加盟主 (franchise_master) ──加盟(M2M)──▶ 數個產品品牌(連鎖總部)
+                       ──管理(1:N)──▶ 數個店主
+店主 (store_owner)    ──唯一經營──▶ 加盟品牌(門市)
+店員 (store_clerk)    ──隸屬於────▶ 加盟品牌(門市)
+```
+
+- `品牌主`：唯一擁有一個「產品品牌(連鎖總部)」，即該品牌的唯一擁有者。
+- `加盟主`：可加盟(M2M)多個「產品品牌」，並管理多個「店主」（一對多）。
+- `店主`：唯一經營一個「加盟品牌(門市)」（不再像 v2 那樣可經營多間門市；多店的情境改由加盟主管理多個店主來表達）。
+- `店員`：隸屬於單一門市（不變）。
 
 ---
 
@@ -14,21 +32,20 @@
 | 欄位 | 型別 | 說明 |
 |---|---|---|
 | id | PK 流水號 | Django 內建自增主鍵 |
-| level | choice | `superuser` / `brand_owner`(品牌主) / `store_owner`(店主) / `store_clerk`(店員) / `member`(會員)。`guest` 已取消 |
+| level | choice | `superuser` / `brand_owner`(品牌主) / `franchise_master`(加盟主，v3新增) / `store_owner`(店主) / `store_clerk`(店員) / `member`(會員)。`guest` 已取消 |
 | name | string | 可重複 |
 | mobile / phone | string | |
 | email | email | 沿用 `AbstractUser.email` |
 | line_id | string | |
 | address | string | |
 | note | text | 純文字，意義後續再解析 |
-| employer_brand | FK → 品牌 (nullable) | 僅 `level=store_clerk` 時使用，指向所屬的加盟品牌門市（已確認保留） |
+| employer_brand | FK → 品牌 (nullable) | 僅 `level=store_clerk` 時使用，指向所屬的加盟品牌門市 |
+| franchised_brands | M2M → 品牌 (v3新增) | 僅 `level=franchise_master` 使用，指向數筆 `brand_type=product_brand`，代表已加盟的連鎖總部 |
+| manager | FK → 人員 (self, nullable, v3新增) | 僅 `level=store_owner` 使用，指向管理該店主的加盟主 |
 | member_level | int 1~10 (nullable) | 僅 `level=member` 使用，沿用現行等級邏輯 |
 | points | int (nullable) | 僅會員使用，累積點數 |
 | total_spent | decimal (nullable) | 僅會員使用，累積消費金額 |
 | favorite_products | M2M → 產品 | 僅會員使用，喜好清單 |
-
-角色與品牌的關係不再用不同 model 表達單/多筆，而是單純看 `品牌.owner` 這個 FK 指向誰、指向了幾筆：
-- 一個人被幾筆「加盟品牌」的 `owner` 指到，就代表他管理幾間門市（`store_owner` 通常多筆，`brand_owner` 通常單筆），純粹是資料上的差異，不再由 schema 強制。
 
 > Guest 取消後，note.txt 頂部「會員分類」第 4 點（guest）需要另外更新，尚未修改該檔案，待您確認後再處理。
 
@@ -39,13 +56,13 @@
 | 欄位 | 型別 | 說明 |
 |---|---|---|
 | id | PK 流水號 | |
-| brand_type | choice | `product_brand`(產品品牌/連鎖總部) / `franchise_brand`(加盟品牌/店主整合門市) |
+| brand_type | choice | `product_brand`(產品品牌/連鎖總部) / `franchise_brand`(加盟品牌/門市) |
 | name_en / name_zh | string | |
 | icon | image | |
 | contact | FK → 人員 | 品牌聯絡人 |
 | website | url | |
 | note | text | 純文字 |
-| owner | FK → 人員 (nullable) | 僅 `brand_type=franchise_brand` 使用，指向該門市的品牌主/店主 |
+| owner | **OneToOne** → 人員 (nullable，v3 由 FK 改為 OneToOne) | `brand_type=product_brand` 時為唯一擁有者「品牌主」；`brand_type=franchise_brand` 時為唯一擁有者「店主」。因兩者現在都是「唯一擁有一個品牌」，改用 OneToOneField 在資料庫層強制此規則 |
 | carried_product_brands | M2M → 品牌 (self, 非對稱) | 僅 `brand_type=franchise_brand` 使用，指向數筆 `brand_type=product_brand` 的品牌，代表此門市掛了哪些連鎖總部的產品線 |
 
 ---
