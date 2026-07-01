@@ -1,18 +1,24 @@
 from rest_framework import serializers
 
-from .models import Brand, Category, Firm, Product, ProductVariant
-
-
-class FirmSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Firm
-        fields = ["id", "name", "branch_name", "address", "phone", "brand", "description"]
+from .models import Brand, Category, Product, ProductImage, StoreProductListing
 
 
 class BrandSerializer(serializers.ModelSerializer):
     class Meta:
         model = Brand
-        fields = ["id", "name", "logo", "founding_firm", "founder"]
+        fields = [
+            "id",
+            "brand_type",
+            "name_en",
+            "name_zh",
+            "icon",
+            "contact",
+            "website",
+            "note",
+            "owner",
+            "carried_product_brands",
+        ]
+        read_only_fields = ["brand_type", "owner"]
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -34,30 +40,18 @@ class CategorySerializer(serializers.ModelSerializer):
         ]
 
 
-class ProductVariantSerializer(serializers.ModelSerializer):
+class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ProductVariant
-        fields = ["id", "sku", "name", "price", "stock"]
+        model = ProductImage
+        fields = ["id", "image", "sort_order"]
 
 
-class ProductListSerializer(serializers.ModelSerializer):
+class ProductSerializer(serializers.ModelSerializer):
+    """HQ 產品主檔(唯讀，由連鎖總部/後台維護)"""
+
     category = CategorySerializer(read_only=True)
-    brand_name = serializers.CharField(source="brand.name", read_only=True, default=None)
-    min_price = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Product
-        fields = ["id", "name", "slug", "category", "brand_name", "image", "min_price"]
-
-    def get_min_price(self, obj):
-        prices = [variant.price for variant in obj.variants.all()]
-        return min(prices) if prices else None
-
-
-class ProductDetailSerializer(serializers.ModelSerializer):
-    category = CategorySerializer(read_only=True)
-    brand_name = serializers.CharField(source="brand.name", read_only=True, default=None)
-    variants = ProductVariantSerializer(many=True, read_only=True)
+    product_brand_name = serializers.CharField(source="product_brand.name_zh", read_only=True)
+    images = ProductImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
@@ -66,52 +60,38 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "category",
-            "brand_name",
-            "description",
-            "image",
-            "variants",
+            "product_brand_name",
+            "spec",
+            "process",
+            "suggested_price",
+            "selling_price",
+            "images",
         ]
 
 
-class ManagedProductSerializer(serializers.ModelSerializer):
-    """店家自行管理商品：上架狀態與基本資料。category 由前端依「種類→子種類1~5」逐層篩選後，
-    送出唯一對應的種類紀錄 id(同名種類可能有多筆，靠子種類與網址代稱區分)。
-    brand 由所屬店家的商店分類自動帶入，同商店分類底下的所有店家共用同一份商品"""
+class StoreProductListingSerializer(serializers.ModelSerializer):
+    """門市商品上架：供顧客瀏覽某門市在賣的商品(含庫存/是否上架)"""
 
-    variants = ProductVariantSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = Product
-        fields = [
-            "id",
-            "category",
-            "name",
-            "slug",
-            "description",
-            "image",
-            "is_active",
-            "variants",
-        ]
-        read_only_fields = ["slug"]
-
-
-class ManagedProductVariantSerializer(serializers.ModelSerializer):
-    """店家自行管理商品細項與優惠價格"""
-
-    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+    product = ProductSerializer(read_only=True)
+    franchise_brand_name = serializers.CharField(source="franchise_brand.name_zh", read_only=True)
 
     class Meta:
-        model = ProductVariant
-        fields = ["id", "product", "sku", "name", "price", "stock"]
+        model = StoreProductListing
+        fields = ["id", "franchise_brand", "franchise_brand_name", "product", "stock", "is_active"]
+
+
+class ManagedStoreProductListingSerializer(serializers.ModelSerializer):
+    """店主管理自己門市的商品上架：只調整庫存與是否上架，門市由後端依操作者身分帶入"""
+
+    class Meta:
+        model = StoreProductListing
+        fields = ["id", "franchise_brand", "product", "stock", "is_active"]
+        read_only_fields = ["franchise_brand"]
 
     def validate_product(self, product):
-        request = self.context["request"]
-        if not request.user.is_superuser:
-            brand_ids = set(
-                Firm.objects.filter(owner=request.user, brand__isnull=False).values_list(
-                    "brand_id", flat=True
-                )
-            )
-            if product.brand_id not in brand_ids:
-                raise serializers.ValidationError("只能管理自己商店分類底下的商品細項")
+        franchise_brand = self.context.get("franchise_brand")
+        if franchise_brand and not franchise_brand.carried_product_brands.filter(
+            pk=product.product_brand_id
+        ).exists():
+            raise serializers.ValidationError("該門市未掛載此產品所屬的產品品牌")
         return product

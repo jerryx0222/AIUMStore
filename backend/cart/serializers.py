@@ -1,21 +1,21 @@
 from rest_framework import serializers
 
-from products.models import ProductVariant
-from products.serializers import ProductVariantSerializer
+from products.models import StoreProductListing
+from products.serializers import StoreProductListingSerializer
 
 from .models import Cart, CartItem
 
 
 class CartItemSerializer(serializers.ModelSerializer):
-    variant = ProductVariantSerializer(read_only=True)
-    variant_id = serializers.PrimaryKeyRelatedField(
-        queryset=ProductVariant.objects.all(), source="variant", write_only=True
+    listing = StoreProductListingSerializer(read_only=True)
+    listing_id = serializers.PrimaryKeyRelatedField(
+        queryset=StoreProductListing.objects.all(), source="listing", write_only=True
     )
     subtotal = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
     class Meta:
         model = CartItem
-        fields = ["id", "variant", "variant_id", "quantity", "subtotal"]
+        fields = ["id", "listing", "listing_id", "quantity", "subtotal"]
 
 
 class CartSerializer(serializers.ModelSerializer):

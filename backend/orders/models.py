@@ -1,8 +1,6 @@
 from django.conf import settings
 from django.db import models
 
-from products.models import ProductVariant
-
 
 class Order(models.Model):
     class Status(models.TextChoices):
@@ -12,26 +10,12 @@ class Order(models.Model):
         COMPLETED = "completed", "已完成"
         CANCELLED = "cancelled", "已取消"
 
-    class FulfillmentType(models.TextChoices):
-        DELIVERY = "delivery", "宅配到府"
-        PICKUP = "pickup", "到店取貨"
-
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="orders",
-        null=True,
-        blank=True,
-        help_text="訪客(guest)結帳時無對應會員帳號",
+        help_text="結帳一律需登入，不支援匿名訪客",
     )
-    fulfillment_type = models.CharField(
-        "取貨方式",
-        max_length=20,
-        choices=FulfillmentType.choices,
-        default=FulfillmentType.DELIVERY,
-    )
-    guest_name = models.CharField("訪客姓名", max_length=100, blank=True)
-    guest_phone = models.CharField("訪客電話", max_length=20, blank=True)
     status = models.CharField(
         "狀態", max_length=20, choices=Status.choices, default=Status.PENDING
     )
@@ -52,11 +36,11 @@ class Order(models.Model):
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
-    variant = models.ForeignKey(
-        ProductVariant, on_delete=models.PROTECT, related_name="order_items"
+    listing = models.ForeignKey(
+        "products.StoreProductListing", on_delete=models.PROTECT, related_name="order_items"
     )
     product_name = models.CharField("商品名稱", max_length=150)
-    variant_name = models.CharField("規格名稱", max_length=100)
+    store_name = models.CharField("門市名稱", max_length=150)
     price = models.DecimalField("單價", max_digits=10, decimal_places=2)
     quantity = models.PositiveIntegerField("數量")
 

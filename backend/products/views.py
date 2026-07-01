@@ -2,49 +2,41 @@ from rest_framework import generics, viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
-from accounts.permissions import IsFirmRole
+from accounts.permissions import IsStoreOwnerRole
 
-from .models import Brand, Category, Firm, Product, ProductVariant
+from .models import Brand, Category, Product, StoreProductListing
 from .serializers import (
     BrandSerializer,
     CategorySerializer,
-    FirmSerializer,
-    ManagedProductSerializer,
-    ManagedProductVariantSerializer,
-    ProductDetailSerializer,
-    ProductListSerializer,
+    ManagedStoreProductListingSerializer,
+    ProductSerializer,
+    StoreProductListingSerializer,
 )
 
 
-def _owned_firms(request):
-    """目前使用者名下的店家(superuser 可看全部)"""
+def _owned_franchise_brands(request):
+    """目前使用者名下的加盟品牌門市(superuser 可看全部)"""
     if request.user.is_superuser:
-        return Firm.objects.all()
-    return Firm.objects.filter(owner=request.user)
+        return Brand.objects.filter(brand_type=Brand.BrandType.FRANCHISE_BRAND)
+    return Brand.objects.filter(brand_type=Brand.BrandType.FRANCHISE_BRAND, owner=request.user)
 
 
-def _resolve_firm(request):
-    """依 ?firm_id= 解析出目前操作的店家；未指定且名下只有一間時自動帶入"""
-    firms = _owned_firms(request)
-    firm_id = request.query_params.get("firm_id")
-    if firm_id:
-        firm = firms.filter(id=firm_id).first()
-        if not firm:
-            raise PermissionDenied("無權操作此店家")
-        return firm
-    if firms.count() == 1:
-        return firms.first()
+def _resolve_franchise_brand(request):
+    """依 ?store_id= 解析出目前操作的門市；未指定且名下只有一間時自動帶入"""
+    stores = _owned_franchise_brands(request)
+    store_id = request.query_params.get("store_id")
+    if store_id:
+        store = stores.filter(id=store_id).first()
+        if not store:
+            raise PermissionDenied("無權操作此門市")
+        return store
+    if stores.count() == 1:
+        return stores.first()
     return None
 
 
-def _owned_brand_ids(request):
-    return list(
-        _owned_firms(request).filter(brand__isnull=False).values_list("brand_id", flat=True).distinct()
-    )
-
-
 class BrandViewSet(viewsets.ReadOnlyModelViewSet):
-    """商店分類(品牌)列表"""
+    """品牌列表(含產品品牌與加盟品牌)"""
 
     queryset = Brand.objects.all()
     serializer_class = BrandSerializer
@@ -61,95 +53,93 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
-    """商品列表與細項(含價格)，可用 ?category=<slug> 篩選(每個種類紀錄已是唯一的種類/子種類路徑)"""
+    """HQ 產品主檔列表(唯讀)，可用 ?category=<slug> 篩選"""
 
+    serializer_class = ProductSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
     lookup_field = "slug"
 
     def get_queryset(self):
-        queryset = (
-            Product.objects.filter(is_active=True)
-            .select_related("category", "brand")
-            .prefetch_related("variants")
+        queryset = Product.objects.select_related("category", "product_brand").prefetch_related(
+            "images"
         )
         category_slug = self.request.query_params.get("category")
         if category_slug:
             queryset = queryset.filter(category__slug=category_slug)
+        product_brand_id = self.request.query_params.get("product_brand")
+        if product_brand_id:
+            queryset = queryset.filter(product_brand_id=product_brand_id)
         return queryset
 
-    def get_serializer_class(self):
-        if self.action == "list":
-            return ProductListSerializer
-        return ProductDetailSerializer
 
+class StoreListingListView(generics.ListAPIView):
+    """瀏覽門市上架中的商品(供顧客下單)：?store_id=<加盟品牌id> 或 ?product_id=<產品id>"""
 
-class FirmListCreateView(generics.ListCreateAPIView):
-    """列出 / 新增目前使用者名下的店家(分店)：同一 owner 可擁有多間分店"""
-
-    serializer_class = FirmSerializer
-    permission_classes = [IsFirmRole]
+    serializer_class = StoreProductListingSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
-        return _owned_firms(self.request)
+        queryset = StoreProductListing.objects.filter(is_active=True).select_related(
+            "product", "product__category", "franchise_brand"
+        )
+        store_id = self.request.query_params.get("store_id")
+        if store_id:
+            queryset = queryset.filter(franchise_brand_id=store_id)
+        product_id = self.request.query_params.get("product_id")
+        if product_id:
+            queryset = queryset.filter(product_id=product_id)
+        return queryset
+
+
+class StoreListCreateView(generics.ListCreateAPIView):
+    """列出 / 新增目前使用者名下的門市(加盟品牌)：一個店主可有多間門市"""
+
+    serializer_class = BrandSerializer
+    permission_classes = [IsStoreOwnerRole]
+
+    def get_queryset(self):
+        return _owned_franchise_brands(self.request)
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        serializer.save(brand_type=Brand.BrandType.FRANCHISE_BRAND, owner=self.request.user)
 
 
-class FirmDetailView(generics.RetrieveUpdateAPIView):
-    """查詢 / 修改名下的某一間店家(分店)"""
+class StoreDetailView(generics.RetrieveUpdateAPIView):
+    """查詢 / 修改名下的某一間門市(加盟品牌)"""
 
-    serializer_class = FirmSerializer
-    permission_classes = [IsFirmRole]
+    serializer_class = BrandSerializer
+    permission_classes = [IsStoreOwnerRole]
 
     def get_queryset(self):
-        return _owned_firms(self.request)
+        return _owned_franchise_brands(self.request)
 
 
-class ManagedProductViewSet(viewsets.ModelViewSet):
-    """店家管理商品：同商店分類(brand)底下的所有店家共用同一份商品。
-    可用 ?firm_id=<id> 指定要以哪一間名下的店家身分操作(未指定且僅有一間時自動帶入)"""
+class ManagedStoreListingViewSet(viewsets.ModelViewSet):
+    """店主管理自己門市的商品上架(庫存/是否上架)。可用 ?store_id=<id> 指定名下哪一間門市"""
 
-    serializer_class = ManagedProductSerializer
-    permission_classes = [IsFirmRole]
+    serializer_class = ManagedStoreProductListingSerializer
+    permission_classes = [IsStoreOwnerRole]
 
     def get_queryset(self):
         user = self.request.user
         if user.is_superuser:
-            return Product.objects.all()
-        firm_id = self.request.query_params.get("firm_id")
-        if firm_id:
-            firm = _owned_firms(self.request).filter(id=firm_id).first()
-            if not firm or not firm.brand_id:
-                return Product.objects.none()
-            return Product.objects.filter(brand=firm.brand)
-        brand_ids = _owned_brand_ids(self.request)
-        return Product.objects.filter(brand_id__in=brand_ids)
+            return StoreProductListing.objects.all()
+        store_id = self.request.query_params.get("store_id")
+        if store_id:
+            store = _owned_franchise_brands(self.request).filter(id=store_id).first()
+            if not store:
+                return StoreProductListing.objects.none()
+            return StoreProductListing.objects.filter(franchise_brand=store)
+        store_ids = _owned_franchise_brands(self.request).values_list("id", flat=True)
+        return StoreProductListing.objects.filter(franchise_brand_id__in=store_ids)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context["franchise_brand"] = _resolve_franchise_brand(self.request)
+        return context
 
     def perform_create(self, serializer):
-        firm = _resolve_firm(self.request)
-        if not firm:
-            raise PermissionDenied("名下有多間店家時，請用 ?firm_id= 指定要管理的店家")
-        if not firm.brand_id:
-            raise PermissionDenied("該店家尚未設定商店分類")
-        serializer.save(brand=firm.brand)
-
-
-class ManagedProductVariantViewSet(viewsets.ModelViewSet):
-    """店家管理同商店分類底下商品的細項與價格"""
-
-    serializer_class = ManagedProductVariantSerializer
-    permission_classes = [IsFirmRole]
-
-    def get_queryset(self):
-        user = self.request.user
-        if user.is_superuser:
-            return ProductVariant.objects.all()
-        firm_id = self.request.query_params.get("firm_id")
-        if firm_id:
-            firm = _owned_firms(self.request).filter(id=firm_id).first()
-            if not firm or not firm.brand_id:
-                return ProductVariant.objects.none()
-            return ProductVariant.objects.filter(product__brand=firm.brand)
-        brand_ids = _owned_brand_ids(self.request)
-        return ProductVariant.objects.filter(product__brand_id__in=brand_ids)
+        store = _resolve_franchise_brand(self.request)
+        if not store:
+            raise PermissionDenied("名下有多間門市時，請用 ?store_id= 指定要管理的門市")
+        serializer.save(franchise_brand=store)

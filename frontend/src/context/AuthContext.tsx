@@ -1,23 +1,22 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 
 import { api } from "../api/client";
-import type { UserRole } from "../types";
+import type { PersonLevel } from "../types";
 
-interface MemberProfile {
-  level: number;
-  points: number;
-  total_spent: string;
-  discount_percent: string;
-}
-
-interface User {
+interface Person {
   id: number;
   username: string;
   email: string;
+  level: PersonLevel;
+  name: string;
+  mobile: string;
   phone: string;
+  line_id: string;
   address: string;
-  role: UserRole;
-  member_profile: MemberProfile | null;
+  member_level: number | null;
+  points: number | null;
+  total_spent: string | null;
+  discount_percent: string;
 }
 
 interface RegisterPayload {
@@ -27,7 +26,7 @@ interface RegisterPayload {
 }
 
 interface AuthContextValue {
-  user: User | null;
+  user: Person | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
@@ -38,12 +37,12 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<Person | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function fetchMe() {
     try {
-      const { data } = await api.get<User>("/accounts/me/");
+      const { data } = await api.get<Person>("/accounts/me/");
       setUser(data);
     } catch {
       setUser(null);

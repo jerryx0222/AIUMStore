@@ -1,26 +1,36 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
-import type { ProductDetail, ProductVariant } from "../types";
+import type { Product, StoreProductListing } from "../types";
 
 export function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
-  const [product, setProduct] = useState<ProductDetail | null>(null);
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [listings, setListings] = useState<StoreProductListing[]>([]);
+  const [selectedListing, setSelectedListing] = useState<StoreProductListing | null>(null);
   const [favorited, setFavorited] = useState(false);
   const { user } = useAuth();
   const { addItem } = useCart();
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.get<ProductDetail>(`/products/${slug}/`).then(({ data }) => {
-      setProduct(data);
-      setSelectedVariant(data.variants[0] ?? null);
-    });
+    api.get<Product>(`/products/${slug}/`).then(({ data }) => setProduct(data));
   }, [slug]);
+
+  useEffect(() => {
+    if (!product) return;
+    api
+      .get<StoreProductListing[]>("/products/store-listings/", {
+        params: { product_id: product.id },
+      })
+      .then(({ data }) => {
+        setListings(data);
+        setSelectedListing(data[0] ?? null);
+      });
+  }, [product]);
 
   if (!product) return <p>載入中...</p>;
 
@@ -29,8 +39,8 @@ export function ProductDetailPage() {
       navigate("/login");
       return;
     }
-    if (!selectedVariant) return;
-    await addItem(selectedVariant.id, 1);
+    if (!selectedListing) return;
+    await addItem(selectedListing.id, 1);
   }
 
   async function handleToggleFavorite() {
@@ -45,9 +55,11 @@ export function ProductDetailPage() {
 
   return (
     <div className="product-detail">
-      {product.image && <img src={product.image} alt={product.name} />}
+      {product.images[0] && <img src={product.images[0].image} alt={product.name} />}
       <h1>{product.name}</h1>
-      {product.brand_name && <p className="firm-name">商店分類: {product.brand_name}</p>}
+      {product.product_brand_name && (
+        <p className="firm-name">產品品牌: {product.product_brand_name}</p>
+      )}
       <p className="firm-name">
         種類:{" "}
         {[
@@ -61,38 +73,29 @@ export function ProductDetailPage() {
           .filter(Boolean)
           .join(" / ")}
       </p>
-      <p>{product.description}</p>
+      <p>規格: {product.spec || "無"}</p>
+      <p>建議價格: NT$ {product.suggested_price}</p>
       <div className="variants">
-        {product.variants.map((variant) => (
+        {listings.map((listing) => (
           <button
-            key={variant.id}
-            className={variant.id === selectedVariant?.id ? "variant active" : "variant"}
-            onClick={() => setSelectedVariant(variant)}
+            key={listing.id}
+            className={listing.id === selectedListing?.id ? "variant active" : "variant"}
+            onClick={() => setSelectedListing(listing)}
           >
-            {variant.name} - NT$ {variant.price}
+            {listing.franchise_brand_name} - NT$ {listing.product.selling_price}（庫存{" "}
+            {listing.stock}）
           </button>
         ))}
       </div>
+      {listings.length === 0 && <p>目前尚無門市上架此商品</p>}
       <div className="actions">
-        <button disabled={!selectedVariant} onClick={handleAddToCart}>
+        <button disabled={!selectedListing} onClick={handleAddToCart}>
           加入購物車
         </button>
-        {user?.role === "member" && (
+        {user?.level === "member" && (
           <button onClick={handleToggleFavorite}>
             {favorited ? "移除最愛" : "加入最愛"}
           </button>
-        )}
-        {!user && selectedVariant && (
-          <Link
-            to="/guest-checkout"
-            state={{
-              variantId: selectedVariant.id,
-              variantName: `${product.name} - ${selectedVariant.name}`,
-              price: selectedVariant.price,
-            }}
-          >
-            <button>免登入・到店取貨預訂</button>
-          </Link>
         )}
       </div>
     </div>

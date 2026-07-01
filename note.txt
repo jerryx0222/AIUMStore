@@ -15,8 +15,13 @@
 
 
 類別:
-1.class 人員:名字,手機,電話,EMAIL,LINE ID,地址,備註:名字可重復,用流水號當KEY(人員ID)
+1.class 人員:level,名字,手機,電話,EMAIL,LINE ID,地址,備註:名字可重復,用流水號當KEY(人員ID)
+    1.1.class 人員.level=superuser,class 品牌主,class 店主,class 店員,class 會員
 2.class 品牌:英文名,中文名,ICON,聯絡人ID(class 人員.人員ID),網址,備註
-3.class 產品品牌: 繼承 class品牌
+7.class 產品:產品類別,產品圖(WebP格式,內存多個圖片),建議價格,實售價格(內定同建議價格),規格,製程
+3.class 產品品牌: 繼承 class品牌,數個class 產品
 4.class 加盟品牌: 繼承 class品牌,數個class 產品品牌
+5.class 品牌主:繼承 class 人員,單一class 加盟品牌
 6.class 店主:繼承 class 人員,數個class 加盟品牌
+7.class 店員:繼承 class 人員
+8.class 會員:繼承 class 人員

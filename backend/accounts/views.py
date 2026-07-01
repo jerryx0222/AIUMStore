@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import PermissionDenied
@@ -6,9 +7,11 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from products.models import Product
-from products.serializers import ProductListSerializer
+from products.serializers import ProductSerializer
 
-from .serializers import RegisterSerializer, UserSerializer
+from .serializers import PersonSerializer, RegisterSerializer
+
+Person = get_user_model()
 
 
 class RegisterView(generics.CreateAPIView):
@@ -19,9 +22,9 @@ class RegisterView(generics.CreateAPIView):
 
 
 class MeView(generics.RetrieveUpdateAPIView):
-    """取得 / 更新目前登入會員資料"""
+    """取得 / 更新目前登入人員資料"""
 
-    serializer_class = UserSerializer
+    serializer_class = PersonSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
@@ -29,7 +32,7 @@ class MeView(generics.RetrieveUpdateAPIView):
 
 
 class LogoutView(APIView):
-    """會員登出：將 refresh token 加入黑名單"""
+    """登出：將 refresh token 加入黑名單"""
 
     permission_classes = [permissions.IsAuthenticated]
 
@@ -49,10 +52,9 @@ class LogoutView(APIView):
         return Response(status=status.HTTP_205_RESET_CONTENT)
 
 
-def _get_member_profile(request):
-    if not hasattr(request.user, "member_profile"):
+def _require_member(request):
+    if not request.user.is_superuser and request.user.level != Person.Level.MEMBER:
         raise PermissionDenied("僅會員可使用此功能")
-    return request.user.member_profile
 
 
 class FavoriteListView(APIView):
@@ -61,14 +63,14 @@ class FavoriteListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        profile = _get_member_profile(request)
-        products = profile.favorite_products.all()
-        return Response(ProductListSerializer(products, many=True).data)
+        _require_member(request)
+        products = request.user.favorite_products.all()
+        return Response(ProductSerializer(products, many=True).data)
 
     def post(self, request):
-        profile = _get_member_profile(request)
+        _require_member(request)
         product = get_object_or_404(Product, pk=request.data.get("product_id"))
-        profile.favorite_products.add(product)
+        request.user.favorite_products.add(product)
         return Response(status=status.HTTP_201_CREATED)
 
 
@@ -78,6 +80,6 @@ class FavoriteDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request, product_id):
-        profile = _get_member_profile(request)
-        profile.favorite_products.remove(product_id)
+        _require_member(request)
+        request.user.favorite_products.remove(product_id)
         return Response(status=status.HTTP_204_NO_CONTENT)

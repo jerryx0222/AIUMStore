@@ -70,7 +70,7 @@ DATABASES = {
     }
 }
 
-AUTH_USER_MODEL = "accounts.User"
+AUTH_USER_MODEL = "accounts.Person"
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

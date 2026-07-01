@@ -1,24 +1,26 @@
 from django import forms
 from django.contrib import admin
 
-from .models import Brand, Category, Firm, Product, ProductVariant
+from .models import Brand, Category, Product, ProductImage, StoreProductListing
 
 
-class ProductVariantInline(admin.TabularInline):
-    model = ProductVariant
-    fields = ["name", "price"]
+class ProductImageInline(admin.TabularInline):
+    model = ProductImage
+    fields = ["image", "sort_order"]
     extra = 1
 
 
-@admin.register(Firm)
-class FirmAdmin(admin.ModelAdmin):
-    list_display = ["name", "branch_name", "owner", "phone", "brand", "created_at"]
-    list_filter = ["brand"]
+class StoreProductListingInline(admin.TabularInline):
+    model = StoreProductListing
+    fields = ["franchise_brand", "stock", "is_active"]
+    extra = 0
 
 
 @admin.register(Brand)
 class BrandAdmin(admin.ModelAdmin):
-    list_display = ["name", "founding_firm", "founder", "created_at"]
+    list_display = ["name_zh", "name_en", "brand_type", "owner", "contact", "created_at"]
+    list_filter = ["brand_type"]
+    filter_horizontal = ["carried_product_brands"]
 
 
 @admin.register(Category)
@@ -49,7 +51,7 @@ class ProductAdminForm(forms.ModelForm):
 
     class Meta:
         model = Product
-        fields = ["brand", "name", "description", "image", "is_active"]
+        fields = ["product_brand", "name", "spec", "process", "suggested_price", "selling_price"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -73,7 +75,7 @@ class ProductAdminForm(forms.ModelForm):
 class ProductAdmin(admin.ModelAdmin):
     form = ProductAdminForm
     fields = [
-        "brand",
+        "product_brand",
         "category_name",
         "sub_category_1",
         "sub_category_2",
@@ -83,14 +85,21 @@ class ProductAdmin(admin.ModelAdmin):
         "category",
         "name",
         "slug",
-        "description",
-        "image",
-        "is_active",
+        "spec",
+        "process",
+        "suggested_price",
+        "selling_price",
     ]
-    list_display = ["name", "brand", "category", "is_active", "created_at"]
-    list_filter = ["brand", "category", "is_active"]
+    list_display = ["name", "product_brand", "category", "suggested_price", "selling_price", "created_at"]
+    list_filter = ["product_brand", "category"]
     readonly_fields = ["slug"]
-    inlines = [ProductVariantInline]
+    inlines = [ProductImageInline, StoreProductListingInline]
 
     class Media:
         js = ["products/admin/product_subcategory.js"]
+
+
+@admin.register(StoreProductListing)
+class StoreProductListingAdmin(admin.ModelAdmin):
+    list_display = ["franchise_brand", "product", "stock", "is_active", "updated_at"]
+    list_filter = ["franchise_brand", "is_active"]

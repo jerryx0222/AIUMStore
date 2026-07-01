@@ -1,4 +1,4 @@
-export type UserRole = "superuser" | "firm" | "member";
+export type PersonLevel = "superuser" | "brand_owner" | "store_owner" | "store_clerk" | "member";
 
 export interface Category {
   id: number;
@@ -13,65 +13,58 @@ export interface Category {
   description: string;
 }
 
-export interface ProductVariant {
+export type BrandType = "product_brand" | "franchise_brand";
+
+export interface Brand {
   id: number;
-  sku: string;
+  brand_type: BrandType;
+  name_en: string;
+  name_zh: string;
+  icon: string | null;
+  contact: number | null;
+  website: string;
+  note: string;
+  owner: number | null;
+  carried_product_brands: number[];
+}
+
+export interface ProductImage {
+  id: number;
+  image: string;
+  sort_order: number;
+}
+
+export interface Product {
+  id: number;
   name: string;
-  price: string;
+  slug: string;
+  category: Category;
+  product_brand_name: string | null;
+  spec: string;
+  process: string;
+  suggested_price: string;
+  selling_price: string;
+  images: ProductImage[];
+}
+
+export interface StoreProductListing {
+  id: number;
+  franchise_brand: number;
+  franchise_brand_name: string;
+  product: Product;
   stock: number;
-}
-
-export interface ProductListItem {
-  id: number;
-  name: string;
-  slug: string;
-  category: Category;
-  brand_name: string | null;
-  image: string | null;
-  min_price: string | null;
-}
-
-export interface ProductDetail {
-  id: number;
-  name: string;
-  slug: string;
-  category: Category;
-  brand_name: string | null;
-  description: string;
-  image: string | null;
-  variants: ProductVariant[];
-}
-
-export interface ManagedProduct {
-  id: number;
-  category: number;
-  name: string;
-  slug: string;
-  description: string;
-  image: string | null;
   is_active: boolean;
-  variants: ProductVariant[];
 }
 
-export interface Firm {
+export interface ManagedStoreProductListing {
   id: number;
-  name: string;
-  branch_name: string;
-  address: string;
-  phone: string;
-  brand: number | null;
-  description: string;
+  franchise_brand: number;
+  product: number;
+  stock: number;
+  is_active: boolean;
 }
 
-export interface BrandOption {
-  id: number;
-  name: string;
-  logo: string | null;
-  founding_firm: number | null;
-  founder: number | null;
-}
-
-export interface FirmDashboard {
+export interface StoreDashboard {
   revenue: string | number;
   order_count: number;
   top_products: { product_name: string; quantity_sold: number }[];
@@ -79,7 +72,7 @@ export interface FirmDashboard {
 
 export interface CartItem {
   id: number;
-  variant: ProductVariant;
+  listing: StoreProductListing;
   quantity: number;
   subtotal: string;
 }
@@ -93,7 +86,7 @@ export interface Cart {
 export interface OrderItem {
   id: number;
   product_name: string;
-  variant_name: string;
+  store_name: string;
   price: string;
   quantity: number;
   subtotal: string;
@@ -110,9 +103,6 @@ export interface Payment {
 export interface Order {
   id: number;
   status: string;
-  fulfillment_type: "delivery" | "pickup";
-  guest_name: string;
-  guest_phone: string;
   total_amount: string;
   discount_amount: string;
   shipping_address: string;

@@ -3,10 +3,10 @@ import { Link } from "react-router-dom";
 
 import { api } from "../api/client";
 import { useCategoryCascade } from "../hooks/useCategoryCascade";
-import type { Category, ProductListItem } from "../types";
+import type { Category, Product } from "../types";
 
 export function ProductsPage() {
-  const [products, setProducts] = useState<ProductListItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const cascade = useCategoryCascade(categories);
@@ -20,7 +20,7 @@ export function ProductsPage() {
     const params: Record<string, string> = {};
     if (cascade.resolved) params.category = cascade.resolved.slug;
     api
-      .get<ProductListItem[]>("/products/", { params })
+      .get<Product[]>("/products/", { params })
       .then(({ data }) => setProducts(data))
       .finally(() => setLoading(false));
   }, [cascade.resolved]);
@@ -59,10 +59,10 @@ export function ProductsPage() {
         <div className="product-grid">
           {products.map((product) => (
             <Link key={product.id} to={`/products/${product.slug}`} className="product-card">
-              {product.image && <img src={product.image} alt={product.name} />}
+              {product.images[0] && <img src={product.images[0].image} alt={product.name} />}
               <h3>{product.name}</h3>
               <p>{product.category.name}</p>
-              <p>{product.min_price ? `NT$ ${product.min_price} 起` : "尚無規格"}</p>
+              <p>NT$ {product.selling_price}</p>
             </Link>
           ))}
         </div>

@@ -1,40 +1,44 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import MemberProfile
-
-User = get_user_model()
+Person = get_user_model()
 
 
-class MemberProfileSerializer(serializers.ModelSerializer):
+class PersonSerializer(serializers.ModelSerializer):
     discount_percent = serializers.DecimalField(max_digits=4, decimal_places=1, read_only=True)
 
     class Meta:
-        model = MemberProfile
-        fields = ["level", "points", "total_spent", "discount_percent"]
-
-
-class UserSerializer(serializers.ModelSerializer):
-    member_profile = MemberProfileSerializer(read_only=True)
-
-    class Meta:
-        model = User
-        fields = ["id", "username", "email", "phone", "address", "role", "member_profile"]
-        read_only_fields = ["role"]
+        model = Person
+        fields = [
+            "id",
+            "username",
+            "email",
+            "level",
+            "name",
+            "mobile",
+            "phone",
+            "line_id",
+            "address",
+            "member_level",
+            "points",
+            "total_spent",
+            "discount_percent",
+        ]
+        read_only_fields = ["level", "member_level", "points", "total_spent"]
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    """一般會員自助註冊，角色固定為 member，不可由前端指定"""
+    """一般會員自助註冊，角色固定為會員，不可由前端指定"""
 
     password = serializers.CharField(write_only=True, min_length=8)
 
     class Meta:
-        model = User
-        fields = ["id", "username", "email", "password", "phone", "address"]
+        model = Person
+        fields = ["id", "username", "email", "password", "name", "mobile", "phone", "address"]
 
     def create(self, validated_data):
         password = validated_data.pop("password")
-        user = User(**validated_data)
-        user.set_password(password)
-        user.save()
-        return user
+        person = Person(level=Person.Level.MEMBER, **validated_data)
+        person.set_password(password)
+        person.save()
+        return person

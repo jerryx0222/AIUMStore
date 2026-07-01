@@ -8,7 +8,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderItem
-        fields = ["id", "product_name", "variant_name", "price", "quantity", "subtotal"]
+        fields = ["id", "product_name", "store_name", "price", "quantity", "subtotal"]
 
 
 class PaymentSerializer(serializers.ModelSerializer):
@@ -26,9 +26,6 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "status",
-            "fulfillment_type",
-            "guest_name",
-            "guest_phone",
             "total_amount",
             "discount_amount",
             "shipping_address",
@@ -50,21 +47,3 @@ class CheckoutSerializer(serializers.Serializer):
             if choice[0] != Payment.Method.STORE_CASH
         ]
     )
-
-
-class GuestOrderItemInputSerializer(serializers.Serializer):
-    variant_id = serializers.IntegerField()
-    quantity = serializers.IntegerField(min_value=1)
-
-
-class GuestCheckoutSerializer(serializers.Serializer):
-    """訪客(guest)結帳：免登入，僅能到店付款取貨"""
-
-    guest_name = serializers.CharField(max_length=100)
-    guest_phone = serializers.CharField(max_length=20)
-    items = GuestOrderItemInputSerializer(many=True)
-
-    def validate_items(self, items):
-        if not items:
-            raise serializers.ValidationError("購買項目不可為空")
-        return items

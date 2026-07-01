@@ -18,11 +18,9 @@ class OrderAdmin(admin.ModelAdmin):
     list_display = [
         "id",
         "user",
-        "guest_name",
-        "fulfillment_type",
         "status",
         "total_amount",
         "created_at",
     ]
-    list_filter = ["status", "fulfillment_type"]
+    list_filter = ["status"]
     inlines = [OrderItemInline, PaymentInline]

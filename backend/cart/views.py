@@ -24,11 +24,11 @@ class CartItemListView(APIView):
 
     def post(self, request):
         cart, _ = Cart.objects.get_or_create(user=request.user)
-        variant_id = request.data.get("variant_id")
+        listing_id = request.data.get("listing_id")
         quantity = int(request.data.get("quantity", 1))
 
         item, created = CartItem.objects.get_or_create(
-            cart=cart, variant_id=variant_id, defaults={"quantity": quantity}
+            cart=cart, listing_id=listing_id, defaults={"quantity": quantity}
         )
         if not created:
             item.quantity += quantity

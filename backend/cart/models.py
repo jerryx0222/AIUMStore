@@ -1,8 +1,6 @@
 from django.conf import settings
 from django.db import models
 
-from products.models import ProductVariant
-
 
 class Cart(models.Model):
     user = models.OneToOneField(
@@ -21,19 +19,19 @@ class Cart(models.Model):
 
 class CartItem(models.Model):
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
-    variant = models.ForeignKey(
-        ProductVariant, on_delete=models.CASCADE, related_name="cart_items"
+    listing = models.ForeignKey(
+        "products.StoreProductListing", on_delete=models.CASCADE, related_name="cart_items"
     )
     quantity = models.PositiveIntegerField("數量", default=1)
 
     class Meta:
         verbose_name = "購物車項目"
         verbose_name_plural = "購物車項目"
-        unique_together = ["cart", "variant"]
+        unique_together = ["cart", "listing"]
 
     def __str__(self):
-        return f"{self.variant} x {self.quantity}"
+        return f"{self.listing} x {self.quantity}"
 
     @property
     def subtotal(self):
-        return self.variant.price * self.quantity
+        return self.listing.product.selling_price * self.quantity

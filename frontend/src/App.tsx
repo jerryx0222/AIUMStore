@@ -5,14 +5,13 @@ import { ProtectedRoute, RoleRoute } from "./components/ProtectedRoute";
 import { CartPage } from "./pages/Cart";
 import { CheckoutPage } from "./pages/Checkout";
 import { FavoritesPage } from "./pages/Favorites";
-import { FirmDashboardPage } from "./pages/FirmDashboard";
-import { FirmProductsPage } from "./pages/FirmProducts";
-import { GuestCheckoutPage } from "./pages/GuestCheckout";
 import { LoginPage } from "./pages/Login";
 import { OrdersPage } from "./pages/Orders";
 import { ProductDetailPage } from "./pages/ProductDetail";
 import { ProductsPage } from "./pages/Products";
 import { RegisterPage } from "./pages/Register";
+import { StoreDashboardPage } from "./pages/StoreDashboard";
+import { StoreProductsPage } from "./pages/StoreProducts";
 
 function App() {
   return (
@@ -24,7 +23,6 @@ function App() {
           <Route path="/products/:slug" element={<ProductDetailPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/guest-checkout" element={<GuestCheckoutPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
@@ -33,9 +31,9 @@ function App() {
             <Route path="/orders" element={<OrdersPage />} />
             <Route path="/favorites" element={<FavoritesPage />} />
           </Route>
-          <Route element={<RoleRoute roles={["firm", "superuser"]} />}>
-            <Route path="/firm" element={<FirmDashboardPage />} />
-            <Route path="/firm/products" element={<FirmProductsPage />} />
+          <Route element={<RoleRoute roles={["brand_owner", "store_owner", "superuser"]} />}>
+            <Route path="/store" element={<StoreDashboardPage />} />
+            <Route path="/store/products" element={<StoreProductsPage />} />
           </Route>
         </Routes>
       </main>

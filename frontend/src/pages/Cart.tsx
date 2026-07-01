@@ -40,8 +40,10 @@ export function CartPage() {
         <tbody>
           {cart.items.map((item) => (
             <tr key={item.id}>
-              <td>{item.variant.name}</td>
-              <td>NT$ {item.variant.price}</td>
+              <td>
+                {item.listing.product.name}（{item.listing.franchise_brand_name}）
+              </td>
+              <td>NT$ {item.listing.product.selling_price}</td>
               <td>
                 <input
                   type="number"

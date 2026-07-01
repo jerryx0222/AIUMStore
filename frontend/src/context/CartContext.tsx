@@ -6,7 +6,7 @@ import type { Cart } from "../types";
 interface CartContextValue {
   cart: Cart | null;
   refreshCart: () => Promise<void>;
-  addItem: (variantId: number, quantity?: number) => Promise<void>;
+  addItem: (listingId: number, quantity?: number) => Promise<void>;
   updateItem: (itemId: number, quantity: number) => Promise<void>;
   removeItem: (itemId: number) => Promise<void>;
 }
@@ -21,9 +21,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCart(data);
   }, []);
 
-  async function addItem(variantId: number, quantity = 1) {
+  async function addItem(listingId: number, quantity = 1) {
     const { data } = await api.post<Cart>("/cart/items/", {
-      variant_id: variantId,
+      listing_id: listingId,
       quantity,
     });
     setCart(data);

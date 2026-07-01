@@ -2,15 +2,15 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { api } from "../api/client";
-import type { ProductListItem } from "../types";
+import type { Product } from "../types";
 
 export function FavoritesPage() {
-  const [products, setProducts] = useState<ProductListItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api
-      .get<ProductListItem[]>("/accounts/favorites/")
+      .get<Product[]>("/accounts/favorites/")
       .then(({ data }) => setProducts(data))
       .finally(() => setLoading(false));
   }, []);
@@ -30,9 +30,9 @@ export function FavoritesPage() {
         {products.map((product) => (
           <div key={product.id} className="product-card">
             <Link to={`/products/${product.slug}`}>
-              {product.image && <img src={product.image} alt={product.name} />}
+              {product.images[0] && <img src={product.images[0].image} alt={product.name} />}
               <h3>{product.name}</h3>
-              <p>{product.brand_name ?? product.category.name}</p>
+              <p>{product.product_brand_name ?? product.category.name}</p>
             </Link>
             <button onClick={() => removeFavorite(product.id)}>移除收藏</button>
           </div>
