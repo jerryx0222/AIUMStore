@@ -1,6 +1,9 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from .models import Brand, Category, Product, ProductImage, StoreProductListing
+
+Person = get_user_model()
 
 
 class BrandSerializer(serializers.ModelSerializer):
@@ -21,6 +24,36 @@ class BrandSerializer(serializers.ModelSerializer):
         read_only_fields = ["brand_type", "owner"]
 
 
+class BrandAdminSerializer(serializers.ModelSerializer):
+    """superuser 維護品牌：開放所有欄位，含指派/更換品牌主(owner)"""
+
+    class Meta:
+        model = Brand
+        fields = [
+            "id",
+            "brand_type",
+            "name_en",
+            "name_zh",
+            "icon",
+            "contact",
+            "website",
+            "note",
+            "owner",
+            "carried_product_brands",
+        ]
+        read_only_fields = ["brand_type"]
+
+    def validate_owner(self, owner):
+        if owner is None:
+            return owner
+        if owner.level != Person.Level.BRAND_OWNER:
+            raise serializers.ValidationError("僅能指派給角色為「品牌主」的帳號")
+        existing = getattr(owner, "owned_brand", None)
+        if existing and existing.id != (self.instance.id if self.instance else None):
+            raise serializers.ValidationError("該品牌主已擁有其他品牌")
+        return owner
+
+
 class CategorySerializer(serializers.ModelSerializer):
     sub_categories = serializers.ListField(child=serializers.CharField(), read_only=True)
 
@@ -38,6 +71,7 @@ class CategorySerializer(serializers.ModelSerializer):
             "sub_categories",
             "description",
         ]
+        read_only_fields = ["slug"]
 
 
 class ProductImageSerializer(serializers.ModelSerializer):

@@ -8,6 +8,8 @@ from .views import (
     ManagedProductImageViewSet,
     ManagedProductViewSet,
     ManagedStoreListingViewSet,
+    ProductBrandDetailView,
+    ProductBrandListCreateView,
     ProductViewSet,
     StoreDetailView,
     StoreListCreateView,
@@ -27,4 +29,10 @@ urlpatterns = [
     path("stores/", StoreListCreateView.as_view(), name="store-list"),
     path("stores/<int:pk>/", StoreDetailView.as_view(), name="store-detail"),
     path("store-listings/", StoreListingListView.as_view(), name="store-listing-list"),
+    path("product-brands/", ProductBrandListCreateView.as_view(), name="product-brand-list"),
+    path(
+        "product-brands/<int:pk>/",
+        ProductBrandDetailView.as_view(),
+        name="product-brand-detail",
+    ),
 ] + router.urls

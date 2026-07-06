@@ -1,15 +1,21 @@
 import { FormEvent, useEffect, useState } from "react";
 
 import { api } from "../api/client";
+import { AccountManagementPanel } from "../components/AccountManagementPanel";
 import { useAuth } from "../context/AuthContext";
-import type {
-  BrandOwnerGroup,
-  Category,
-  FranchiseListing,
-  ManagementDashboard,
-} from "../types";
+import type { Brand, BrandOwnerGroup, Category, FranchiseListing, ManagementDashboard } from "../types";
 
 const emptyProductForm = { category: "", name: "", spec: "", process: "", suggested_price: "" };
+const emptyBrandForm = { name_zh: "", name_en: "", website: "", note: "" };
+const emptyCategoryForm = {
+  name: "",
+  sub_category_1: "",
+  sub_category_2: "",
+  sub_category_3: "",
+  sub_category_4: "",
+  sub_category_5: "",
+  description: "",
+};
 
 export function ManagementDashboardPage() {
   const { user } = useAuth();
@@ -20,6 +26,17 @@ export function ManagementDashboardPage() {
   const [newProductForms, setNewProductForms] = useState<Record<number, typeof emptyProductForm>>(
     {}
   );
+  const [brandForm, setBrandForm] = useState(emptyBrandForm);
+  const [brandFormOwnerId, setBrandFormOwnerId] = useState("");
+  const [brandIcon, setBrandIcon] = useState<File | null>(null);
+  const [productBrands, setProductBrands] = useState<Brand[]>([]);
+  const [categoryForm, setCategoryForm] = useState(emptyCategoryForm);
+  const [editingCategorySlug, setEditingCategorySlug] = useState<string | null>(null);
+
+  async function reloadCategories() {
+    const { data } = await api.get<Category[]>("/products/categories/");
+    setCategories(data);
+  }
 
   async function reload() {
     const { data } = await api.get<ManagementDashboard>("/accounts/dashboard/");
@@ -30,15 +47,93 @@ export function ManagementDashboardPage() {
     } else {
       setFranchiseListings([]);
     }
+    if (user?.is_superuser) {
+      const { data: brands } = await api.get<Brand[]>("/products/brands/");
+      setProductBrands(brands.filter((b) => b.brand_type === "product_brand"));
+    }
   }
 
   useEffect(() => {
-    api.get<Category[]>("/products/categories/").then(({ data }) => setCategories(data));
+    reloadCategories();
     reload().finally(() => setLoading(false));
   }, []);
 
   function getNewProductForm(brandOwnerId: number) {
     return newProductForms[brandOwnerId] ?? emptyProductForm;
+  }
+
+  async function handleCreateCategory(event: FormEvent) {
+    event.preventDefault();
+    await api.post("/products/categories/", categoryForm);
+    setCategoryForm(emptyCategoryForm);
+    await reloadCategories();
+  }
+
+  function startEditingCategory(category: Category) {
+    setEditingCategorySlug(category.slug);
+    setCategoryForm({
+      name: category.name,
+      sub_category_1: category.sub_category_1,
+      sub_category_2: category.sub_category_2,
+      sub_category_3: category.sub_category_3,
+      sub_category_4: category.sub_category_4,
+      sub_category_5: category.sub_category_5,
+      description: category.description,
+    });
+  }
+
+  async function handleUpdateCategory(event: FormEvent) {
+    event.preventDefault();
+    if (editingCategorySlug == null) return;
+    await api.patch(`/products/categories/${editingCategorySlug}/`, categoryForm);
+    setEditingCategorySlug(null);
+    setCategoryForm(emptyCategoryForm);
+    await reloadCategories();
+  }
+
+  function cancelEditingCategory() {
+    setEditingCategorySlug(null);
+    setCategoryForm(emptyCategoryForm);
+  }
+
+  async function handleCreateBrand(event: FormEvent) {
+    event.preventDefault();
+    const formData = new FormData();
+    formData.append("name_zh", brandForm.name_zh);
+    formData.append("name_en", brandForm.name_en);
+    formData.append("website", brandForm.website);
+    formData.append("note", brandForm.note);
+    if (brandIcon) formData.append("icon", brandIcon);
+    await api.post("/products/product-brands/", formData, {
+      params: brandFormOwnerId ? { owner_id: brandFormOwnerId } : undefined,
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    setBrandForm(emptyBrandForm);
+    setBrandFormOwnerId("");
+    setBrandIcon(null);
+    await reload();
+  }
+
+  async function handleUpdateProductBrand(
+    brandId: number,
+    changes: { name_zh?: string; name_en?: string; website?: string; note?: string }
+  ) {
+    await api.patch(`/products/product-brands/${brandId}/`, changes);
+    await reload();
+  }
+
+  async function handleUploadBrandIcon(brandId: number, file: File) {
+    const formData = new FormData();
+    formData.append("icon", file);
+    await api.patch(`/products/product-brands/${brandId}/`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    await reload();
+  }
+
+  async function handleReassignBrandOwner(brandId: number, ownerId: string) {
+    await api.patch(`/products/product-brands/${brandId}/`, { owner: ownerId || null });
+    await reload();
   }
 
   function canEditBrand(group: BrandOwnerGroup) {
@@ -118,6 +213,168 @@ export function ManagementDashboardPage() {
     <div className="erp-page">
       <h1>管理維護頁</h1>
       {!hasAny && <p>目前沒有可顯示的資料</p>}
+
+      {user?.is_superuser && (
+        <div className="erp-panel">
+          <div className="erp-panel-title">新增品牌</div>
+          <div className="erp-panel-body">
+            <form onSubmit={handleCreateBrand} className="erp-group">
+              <div className="actions">
+                <input
+                  placeholder="品牌中文名"
+                  value={brandForm.name_zh}
+                  onChange={(e) => setBrandForm({ ...brandForm, name_zh: e.target.value })}
+                  required
+                />
+                <input
+                  placeholder="品牌英文名"
+                  value={brandForm.name_en}
+                  onChange={(e) => setBrandForm({ ...brandForm, name_en: e.target.value })}
+                />
+                <input
+                  placeholder="網址"
+                  value={brandForm.website}
+                  onChange={(e) => setBrandForm({ ...brandForm, website: e.target.value })}
+                />
+                <input
+                  placeholder="備註"
+                  value={brandForm.note}
+                  onChange={(e) => setBrandForm({ ...brandForm, note: e.target.value })}
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setBrandIcon(e.target.files?.[0] ?? null)}
+                />
+                <select
+                  value={brandFormOwnerId}
+                  onChange={(e) => setBrandFormOwnerId(e.target.value)}
+                >
+                  <option value="">不指定品牌主(稍後指派)</option>
+                  {data.brand_owners
+                    .filter((g) => !g.brand)
+                    .map((g) => (
+                      <option key={g.brand_owner.id} value={g.brand_owner.id}>
+                        指派給：{g.brand_owner.name || g.brand_owner.username}
+                      </option>
+                    ))}
+                </select>
+                <button type="submit">新增品牌</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {user?.is_superuser && (
+        <div className="erp-panel">
+          <div className="erp-panel-title">品牌維護</div>
+          <div className="erp-panel-body">
+            {productBrands.length === 0 ? (
+              <p>尚無品牌</p>
+            ) : (
+              <table className="erp-table">
+                <thead>
+                  <tr>
+                    <th>圖標</th>
+                    <th>中文名</th>
+                    <th>英文名</th>
+                    <th>網址</th>
+                    <th>備註</th>
+                    <th>品牌主</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {productBrands.map((brand) => (
+                    <tr key={brand.id}>
+                      <td>
+                        {brand.icon && (
+                          <img src={brand.icon} alt="" style={{ height: "28px" }} />
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleUploadBrandIcon(brand.id, file);
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          defaultValue={brand.name_zh}
+                          onBlur={(e) =>
+                            e.target.value !== brand.name_zh &&
+                            handleUpdateProductBrand(brand.id, { name_zh: e.target.value })
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          defaultValue={brand.name_en}
+                          onBlur={(e) =>
+                            e.target.value !== brand.name_en &&
+                            handleUpdateProductBrand(brand.id, { name_en: e.target.value })
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          defaultValue={brand.website}
+                          onBlur={(e) =>
+                            e.target.value !== brand.website &&
+                            handleUpdateProductBrand(brand.id, { website: e.target.value })
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          defaultValue={brand.note}
+                          onBlur={(e) =>
+                            e.target.value !== brand.note &&
+                            handleUpdateProductBrand(brand.id, { note: e.target.value })
+                          }
+                        />
+                      </td>
+                      <td>
+                        <select
+                          defaultValue={brand.owner ?? ""}
+                          onChange={(e) => handleReassignBrandOwner(brand.id, e.target.value)}
+                        >
+                          <option value="">未指派</option>
+                          {data.brand_owners
+                            .filter((g) => !g.brand || g.brand.id === brand.id)
+                            .map((g) => (
+                              <option key={g.brand_owner.id} value={g.brand_owner.id}>
+                                {g.brand_owner.name || g.brand_owner.username}
+                              </option>
+                            ))}
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {user?.is_superuser && (
+        <AccountManagementPanel
+          title="品牌主管理"
+          createLabel="新增品牌主"
+          endpoint="/accounts/brand-owners/"
+        />
+      )}
+
+      {user?.is_superuser && (
+        <AccountManagementPanel
+          title="加盟主管理"
+          createLabel="新增加盟主"
+          endpoint="/accounts/franchise-masters/"
+        />
+      )}
 
       {data.store_clerks.length > 0 && (
         <div className="erp-panel">
@@ -271,6 +528,97 @@ export function ManagementDashboardPage() {
         <div className="erp-panel">
           <div className="erp-panel-title">品牌與產品資料</div>
           <div className="erp-panel-body">
+            {data.brand_owners.some((g) => canEditBrand(g)) && (
+              <div className="erp-group">
+                <div className="erp-group-title">種類管理</div>
+                <form
+                  onSubmit={editingCategorySlug ? handleUpdateCategory : handleCreateCategory}
+                  className="actions"
+                >
+                  <input
+                    placeholder="種類名稱"
+                    value={categoryForm.name}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                    required
+                  />
+                  <input
+                    placeholder="子種類1"
+                    value={categoryForm.sub_category_1}
+                    onChange={(e) =>
+                      setCategoryForm({ ...categoryForm, sub_category_1: e.target.value })
+                    }
+                  />
+                  <input
+                    placeholder="子種類2"
+                    value={categoryForm.sub_category_2}
+                    onChange={(e) =>
+                      setCategoryForm({ ...categoryForm, sub_category_2: e.target.value })
+                    }
+                  />
+                  <input
+                    placeholder="子種類3"
+                    value={categoryForm.sub_category_3}
+                    onChange={(e) =>
+                      setCategoryForm({ ...categoryForm, sub_category_3: e.target.value })
+                    }
+                  />
+                  <input
+                    placeholder="子種類4"
+                    value={categoryForm.sub_category_4}
+                    onChange={(e) =>
+                      setCategoryForm({ ...categoryForm, sub_category_4: e.target.value })
+                    }
+                  />
+                  <input
+                    placeholder="子種類5"
+                    value={categoryForm.sub_category_5}
+                    onChange={(e) =>
+                      setCategoryForm({ ...categoryForm, sub_category_5: e.target.value })
+                    }
+                  />
+                  <input
+                    placeholder="說明"
+                    value={categoryForm.description}
+                    onChange={(e) =>
+                      setCategoryForm({ ...categoryForm, description: e.target.value })
+                    }
+                  />
+                  <button type="submit">{editingCategorySlug ? "儲存" : "新增種類"}</button>
+                  {editingCategorySlug && (
+                    <button type="button" onClick={cancelEditingCategory}>
+                      取消
+                    </button>
+                  )}
+                </form>
+
+                {categories.length === 0 ? (
+                  <p>尚無種類</p>
+                ) : (
+                  <table className="erp-table">
+                    <thead>
+                      <tr>
+                        <th>名稱</th>
+                        <th>子種類</th>
+                        <th>說明</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {categories.map((category) => (
+                        <tr key={category.id}>
+                          <td>{category.name}</td>
+                          <td>{category.sub_categories.join("、") || "-"}</td>
+                          <td>{category.description || "-"}</td>
+                          <td>
+                            <button onClick={() => startEditingCategory(category)}>編輯</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
             {data.brand_owners.map((group) => (
               <div key={group.brand_owner.id} className="erp-group">
                 <div className="erp-group-title">

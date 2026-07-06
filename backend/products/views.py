@@ -1,11 +1,19 @@
+from django.contrib.auth import get_user_model
+from django.utils.text import slugify
 from rest_framework import generics, mixins, viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
-from accounts.permissions import IsBrandOwnerRole, IsFranchiseMasterRole, IsStoreOwnerRole
+from accounts.permissions import (
+    IsBrandOwnerRole,
+    IsFranchiseMasterRole,
+    IsStoreOwnerRole,
+    IsSuperUser,
+)
 
 from .models import Brand, Category, Product, ProductImage, StoreProductListing
 from .serializers import (
+    BrandAdminSerializer,
     BrandSerializer,
     CategorySerializer,
     FranchiseListingSerializer,
@@ -15,6 +23,8 @@ from .serializers import (
     ProductSerializer,
     StoreProductListingSerializer,
 )
+
+Person = get_user_model()
 
 
 def _owned_franchise_brands(request):
@@ -86,13 +96,41 @@ class BrandViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
 
-class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
-    """產品種類列表"""
+class CategoryViewSet(viewsets.ModelViewSet):
+    """產品種類：查詢公開，新增/編輯僅限品牌主與 superuser。
+    網址代稱(slug)由名稱自動產生，不開放前端指定"""
 
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
     lookup_field = "slug"
+
+    def get_permissions(self):
+        if self.action in ("list", "retrieve"):
+            return [IsAuthenticatedOrReadOnly()]
+        return [IsBrandOwnerRole()]
+
+    def _unique_slug(self, name, instance=None):
+        base = slugify(name, allow_unicode=True) or "category"
+        slug = base
+        suffix = 2
+        queryset = Category.objects.all()
+        if instance:
+            queryset = queryset.exclude(pk=instance.pk)
+        while queryset.filter(slug=slug).exists():
+            slug = f"{base}-{suffix}"
+            suffix += 1
+        return slug
+
+    def perform_create(self, serializer):
+        serializer.save(slug=self._unique_slug(serializer.validated_data["name"]))
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        name = serializer.validated_data.get("name", instance.name)
+        if name != instance.name:
+            serializer.save(slug=self._unique_slug(name, instance))
+        else:
+            serializer.save()
 
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
@@ -157,6 +195,37 @@ class StoreDetailView(generics.RetrieveUpdateAPIView):
 
     def get_queryset(self):
         return _owned_franchise_brands(self.request)
+
+
+class ProductBrandListCreateView(generics.ListCreateAPIView):
+    """superuser 新增/列出產品品牌(連鎖總部)。可用 ?owner_id= 指定要交給哪個尚未擁有品牌的品牌主"""
+
+    serializer_class = BrandSerializer
+    permission_classes = [IsSuperUser]
+
+    def get_queryset(self):
+        return Brand.objects.filter(brand_type=Brand.BrandType.PRODUCT_BRAND)
+
+    def perform_create(self, serializer):
+        owner = None
+        owner_id = self.request.query_params.get("owner_id")
+        if owner_id:
+            owner = Person.objects.filter(
+                id=owner_id, level=Person.Level.BRAND_OWNER, owned_brand__isnull=True
+            ).first()
+            if not owner:
+                raise PermissionDenied("找不到可指派的品牌主，或該品牌主已擁有品牌")
+        serializer.save(brand_type=Brand.BrandType.PRODUCT_BRAND, owner=owner)
+
+
+class ProductBrandDetailView(generics.RetrieveUpdateAPIView):
+    """superuser 維護單一產品品牌：可編輯所有欄位，含指派/更換品牌主"""
+
+    serializer_class = BrandAdminSerializer
+    permission_classes = [IsSuperUser]
+
+    def get_queryset(self):
+        return Brand.objects.filter(brand_type=Brand.BrandType.PRODUCT_BRAND)
 
 
 class ManagedStoreListingViewSet(viewsets.ModelViewSet):

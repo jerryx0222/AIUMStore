@@ -12,6 +12,7 @@ import { ProductDetailPage } from "./pages/ProductDetail";
 import { ProductsPage } from "./pages/Products";
 import { RegisterPage } from "./pages/Register";
 import { StoreDashboardPage } from "./pages/StoreDashboard";
+import { StoreOwnerManagementPage } from "./pages/StoreOwnerManagement";
 import { StoreProductsPage } from "./pages/StoreProducts";
 
 function App() {
@@ -40,6 +41,9 @@ function App() {
             element={<RoleRoute roles={["store_owner", "franchise_master", "brand_owner"]} />}
           >
             <Route path="/management" element={<ManagementDashboardPage />} />
+          </Route>
+          <Route element={<RoleRoute roles={["franchise_master"]} />}>
+            <Route path="/franchise/store-owners" element={<StoreOwnerManagementPage />} />
           </Route>
         </Routes>
       </main>

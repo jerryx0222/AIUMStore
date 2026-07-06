@@ -136,6 +136,25 @@ export interface ManagementDashboard {
   brand_owners: BrandOwnerGroup[];
 }
 
+export interface ManagedAccount {
+  id: number;
+  username: string;
+  name: string;
+  email: string;
+  mobile: string;
+  phone: string;
+  level: PersonLevel;
+}
+
+export interface ManagedAccountInput {
+  username: string;
+  password: string;
+  name: string;
+  email: string;
+  mobile: string;
+  phone: string;
+}
+
 export interface CartItem {
   id: number;
   listing: StoreProductListing;

@@ -18,6 +18,9 @@ export function Navbar() {
         {(user?.is_superuser || user?.level === "store_owner") && (
           <Link to="/store">門市後台</Link>
         )}
+        {(user?.is_superuser || user?.level === "franchise_master") && (
+          <Link to="/franchise/store-owners">門市管理</Link>
+        )}
         {(user?.is_superuser ||
           user?.level === "store_owner" ||
           user?.level === "franchise_master" ||

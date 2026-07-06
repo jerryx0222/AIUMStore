@@ -9,7 +9,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from products.models import Product
 from products.serializers import BrandSerializer, ProductSerializer
 
+from .permissions import IsFranchiseMasterRole, IsSuperUser
 from .serializers import (
+    AccountAdminSerializer,
     BrandWithProductsSerializer,
     PersonBriefSerializer,
     PersonSerializer,
@@ -176,3 +178,82 @@ class ManagementDashboardView(APIView):
                 "brand_owners": brand_owners,
             }
         )
+
+
+class BrandOwnerListCreateView(generics.ListCreateAPIView):
+    """superuser 新增/列出品牌主帳號"""
+
+    serializer_class = AccountAdminSerializer
+    permission_classes = [IsSuperUser]
+    queryset = Person.objects.filter(level=Person.Level.BRAND_OWNER)
+
+    def perform_create(self, serializer):
+        serializer.save(level=Person.Level.BRAND_OWNER)
+
+
+class BrandOwnerDetailView(generics.RetrieveUpdateAPIView):
+    """superuser 維護單一品牌主帳號(可重設密碼)"""
+
+    serializer_class = AccountAdminSerializer
+    permission_classes = [IsSuperUser]
+    queryset = Person.objects.filter(level=Person.Level.BRAND_OWNER)
+
+
+class FranchiseMasterListCreateView(generics.ListCreateAPIView):
+    """superuser 新增/列出加盟主帳號"""
+
+    serializer_class = AccountAdminSerializer
+    permission_classes = [IsSuperUser]
+    queryset = Person.objects.filter(level=Person.Level.FRANCHISE_MASTER)
+
+    def perform_create(self, serializer):
+        serializer.save(level=Person.Level.FRANCHISE_MASTER)
+
+
+class FranchiseMasterDetailView(generics.RetrieveUpdateAPIView):
+    """superuser 維護單一加盟主帳號(可重設密碼)"""
+
+    serializer_class = AccountAdminSerializer
+    permission_classes = [IsSuperUser]
+    queryset = Person.objects.filter(level=Person.Level.FRANCHISE_MASTER)
+
+
+class StoreOwnerListCreateView(generics.ListCreateAPIView):
+    """加盟主新增/列出自己管理的店主帳號(superuser 可看全部，
+    新增時可用 ?manager_id= 指定要交給哪個加盟主管理)"""
+
+    serializer_class = AccountAdminSerializer
+    permission_classes = [IsFranchiseMasterRole]
+
+    def get_queryset(self):
+        if self.request.user.is_superuser:
+            queryset = Person.objects.filter(level=Person.Level.STORE_OWNER)
+            manager_id = self.request.query_params.get("manager_id")
+            return queryset.filter(manager_id=manager_id) if manager_id else queryset
+        return self.request.user.managed_store_owners.all()
+
+    def perform_create(self, serializer):
+        if self.request.user.is_superuser:
+            manager = None
+            manager_id = self.request.query_params.get("manager_id")
+            if manager_id:
+                manager = Person.objects.filter(
+                    id=manager_id, level=Person.Level.FRANCHISE_MASTER
+                ).first()
+                if not manager:
+                    raise PermissionDenied("找不到指定的加盟主")
+            serializer.save(level=Person.Level.STORE_OWNER, manager=manager)
+        else:
+            serializer.save(level=Person.Level.STORE_OWNER, manager=self.request.user)
+
+
+class StoreOwnerDetailView(generics.RetrieveUpdateAPIView):
+    """維護單一店主帳號(僅該店主的加盟主本人或 superuser，可重設密碼)"""
+
+    serializer_class = AccountAdminSerializer
+    permission_classes = [IsFranchiseMasterRole]
+
+    def get_queryset(self):
+        if self.request.user.is_superuser:
+            return Person.objects.filter(level=Person.Level.STORE_OWNER)
+        return self.request.user.managed_store_owners.all()
