@@ -38,6 +38,11 @@
 1.將目前MySQL內的所有相關的資料庫匯出保存成"日期時間.sql"檔
 2.將所滙出的"日期時間.sql"檔匯入本機的資料庫
 
+backend/db_backup.py：資料庫匯出/匯入工具
+python db_backup.py export → 匯出成 backups/20260706_090358.sql 這種「日期時間.sql」格式（用 mysqldump，含 schema + 資料）
+python db_backup.py import [檔案] → 匯入指定檔案；不給檔名時自動抓 backups/ 底下最新的一份
+backend/Dockerfile 加裝 default-mysql-client，讓容器內有 mysqldump/mysql 指令可用（已重建 image 生效）
+.gitignore 加入 backend/backups/，避免備份檔（含密碼雜湊等敏感資料）被提交進版本控制
 
 
 品牌主:
