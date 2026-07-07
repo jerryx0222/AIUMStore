@@ -12,6 +12,7 @@ export function Navbar() {
       </Link>
       <div className="nav-links">
         <Link to="/">商品</Link>
+        <Link to="/combos">套餐</Link>
         <Link to="/cart">購物車</Link>
         {user?.level === "member" && <Link to="/orders">我的訂單</Link>}
         {user?.level === "member" && <Link to="/favorites">我的最愛</Link>}

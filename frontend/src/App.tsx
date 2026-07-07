@@ -4,6 +4,8 @@ import { Navbar } from "./components/Navbar";
 import { ProtectedRoute, RoleRoute } from "./components/ProtectedRoute";
 import { CartPage } from "./pages/Cart";
 import { CheckoutPage } from "./pages/Checkout";
+import { ComboDetailPage } from "./pages/ComboDetail";
+import { CombosPage } from "./pages/Combos";
 import { FavoritesPage } from "./pages/Favorites";
 import { LoginPage } from "./pages/Login";
 import { ManagementDashboardPage } from "./pages/ManagementDashboard";
@@ -23,6 +25,8 @@ function App() {
         <Routes>
           <Route path="/" element={<ProductsPage />} />
           <Route path="/products/:slug" element={<ProductDetailPage />} />
+          <Route path="/combos" element={<CombosPage />} />
+          <Route path="/combos/:slug" element={<ComboDetailPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route element={<ProtectedRoute />}>

@@ -54,8 +54,15 @@ class Brand(models.Model):
 
 
 class Category(models.Model):
-    """產品種類"""
+    """產品種類：各產品品牌(連鎖總部)各自維護自己的種類，不再全域共用"""
 
+    product_brand = models.ForeignKey(
+        Brand,
+        on_delete=models.PROTECT,
+        related_name="categories",
+        limit_choices_to={"brand_type": Brand.BrandType.PRODUCT_BRAND},
+        verbose_name="所屬產品品牌(連鎖總部)",
+    )
     name = models.CharField("分類名稱", max_length=100)
     slug = models.SlugField("網址代稱", max_length=100, unique=True)
     sub_category_1 = models.CharField("子種類1", max_length=50, blank=True)
@@ -193,3 +200,102 @@ class StoreProductListing(models.Model):
     @property
     def effective_price(self):
         return self.actual_price if self.actual_price is not None else self.product.selling_price
+
+
+class Combo(models.Model):
+    """套餐：連鎖總部(產品品牌)主檔，由數個產品組合而成(各自數量見 ComboItem)，
+    上架與否由門市決定，見 StoreComboListing"""
+
+    product_brand = models.ForeignKey(
+        Brand,
+        on_delete=models.PROTECT,
+        related_name="combos",
+        limit_choices_to={"brand_type": Brand.BrandType.PRODUCT_BRAND},
+        verbose_name="所屬產品品牌(連鎖總部)",
+    )
+    name = models.CharField("套餐名稱", max_length=150)
+    slug = models.SlugField(
+        "網址代稱", max_length=150, unique=True, blank=True, help_text="自動生成流水號"
+    )
+    image = models.ImageField("LOGO", upload_to="combos/", blank=True, null=True)
+    suggested_price = models.DecimalField("建議價格", max_digits=10, decimal_places=2)
+    selling_price = models.DecimalField(
+        "實售價格", max_digits=10, decimal_places=2, blank=True, null=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "套餐"
+        verbose_name_plural = "套餐"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if self.selling_price is None:
+            self.selling_price = self.suggested_price
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        if is_new and not self.slug:
+            self.slug = str(self.pk)
+            super().save(update_fields=["slug"])
+
+
+class ComboItem(models.Model):
+    """套餐內容：套餐所含的產品，與該產品在此套餐中的數量"""
+
+    combo = models.ForeignKey(Combo, on_delete=models.CASCADE, related_name="items", verbose_name="套餐")
+    product = models.ForeignKey(
+        Product, on_delete=models.PROTECT, related_name="combo_items", verbose_name="產品"
+    )
+    quantity = models.PositiveIntegerField("數量", default=1)
+
+    class Meta:
+        verbose_name = "套餐內容"
+        verbose_name_plural = "套餐內容"
+        unique_together = ["combo", "product"]
+
+    def __str__(self):
+        return f"{self.combo.name} - {self.product.name} x{self.quantity}"
+
+
+class StoreComboListing(models.Model):
+    """門市套餐上架：庫存/實際價格/是否上架由店主(自己門市)或加盟主(其管理的所有門市)決定，
+    比照 StoreProductListing"""
+
+    franchise_brand = models.ForeignKey(
+        Brand,
+        on_delete=models.CASCADE,
+        related_name="store_combo_listings",
+        limit_choices_to={"brand_type": Brand.BrandType.FRANCHISE_BRAND},
+        verbose_name="門市(加盟品牌)",
+    )
+    combo = models.ForeignKey(
+        Combo, on_delete=models.CASCADE, related_name="store_listings", verbose_name="套餐"
+    )
+    stock = models.PositiveIntegerField("庫存", default=0)
+    actual_price = models.DecimalField(
+        "實際價格",
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="門市實際售價，由店主或加盟主決定；未設定則採用套餐的實售價格",
+    )
+    is_active = models.BooleanField("上架中", default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "門市套餐上架"
+        verbose_name_plural = "門市套餐上架"
+        unique_together = ["franchise_brand", "combo"]
+
+    def __str__(self):
+        return f"{self.franchise_brand} - {self.combo.name}"
+
+    @property
+    def effective_price(self):
+        return self.actual_price if self.actual_price is not None else self.combo.selling_price

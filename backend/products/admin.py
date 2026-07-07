@@ -1,7 +1,16 @@
 from django import forms
 from django.contrib import admin
 
-from .models import Brand, Category, Product, ProductImage, StoreProductListing
+from .models import (
+    Brand,
+    Category,
+    Combo,
+    ComboItem,
+    Product,
+    ProductImage,
+    StoreComboListing,
+    StoreProductListing,
+)
 
 
 class ProductImageInline(admin.TabularInline):
@@ -27,6 +36,7 @@ class BrandAdmin(admin.ModelAdmin):
 class CategoryAdmin(admin.ModelAdmin):
     list_display = [
         "name",
+        "product_brand",
         "slug",
         "sub_category_1",
         "sub_category_2",
@@ -34,6 +44,7 @@ class CategoryAdmin(admin.ModelAdmin):
         "sub_category_4",
         "sub_category_5",
     ]
+    list_filter = ["product_brand"]
     prepopulated_fields = {"slug": ("name",)}
 
 
@@ -102,4 +113,31 @@ class ProductAdmin(admin.ModelAdmin):
 @admin.register(StoreProductListing)
 class StoreProductListingAdmin(admin.ModelAdmin):
     list_display = ["franchise_brand", "product", "stock", "actual_price", "is_active", "updated_at"]
+    list_filter = ["franchise_brand", "is_active"]
+
+
+class ComboItemInline(admin.TabularInline):
+    model = ComboItem
+    fields = ["product", "quantity"]
+    extra = 1
+
+
+class StoreComboListingInline(admin.TabularInline):
+    model = StoreComboListing
+    fields = ["franchise_brand", "stock", "is_active"]
+    extra = 0
+
+
+@admin.register(Combo)
+class ComboAdmin(admin.ModelAdmin):
+    fields = ["product_brand", "name", "slug", "suggested_price", "selling_price"]
+    list_display = ["name", "product_brand", "suggested_price", "selling_price", "created_at"]
+    list_filter = ["product_brand"]
+    readonly_fields = ["slug"]
+    inlines = [ComboItemInline, StoreComboListingInline]
+
+
+@admin.register(StoreComboListing)
+class StoreComboListingAdmin(admin.ModelAdmin):
+    list_display = ["franchise_brand", "combo", "stock", "actual_price", "is_active", "updated_at"]
     list_filter = ["franchise_brand", "is_active"]

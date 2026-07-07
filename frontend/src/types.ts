@@ -45,7 +45,9 @@ export interface Product {
   name: string;
   slug: string;
   category: Category;
+  product_brand_id: number;
   product_brand_name: string | null;
+  product_brand_icon: string | null;
   spec: string;
   process: string;
   suggested_price: string;
@@ -68,6 +70,45 @@ export interface ManagedStoreProductListing {
   id: number;
   franchise_brand: number;
   product: number;
+  stock: number;
+  actual_price: string | null;
+  is_active: boolean;
+}
+
+export interface ComboItem {
+  id: number;
+  product: Product;
+  quantity: number;
+}
+
+export interface Combo {
+  id: number;
+  name: string;
+  slug: string;
+  image: string | null;
+  product_brand_id: number;
+  product_brand_name: string | null;
+  product_brand_icon: string | null;
+  items: ComboItem[];
+  suggested_price: string;
+  selling_price: string;
+}
+
+export interface StoreComboListing {
+  id: number;
+  franchise_brand: number;
+  franchise_brand_name: string;
+  combo: Combo;
+  stock: number;
+  actual_price: string | null;
+  price: string;
+  is_active: boolean;
+}
+
+export interface ManagedStoreComboListing {
+  id: number;
+  franchise_brand: number;
+  combo: number;
   stock: number;
   actual_price: string | null;
   is_active: boolean;
@@ -128,6 +169,7 @@ export interface BrandOwnerGroup {
   brand_owner: PersonBrief;
   brand: Brand | null;
   products: Product[];
+  combos: Combo[];
 }
 
 export interface ManagementDashboard {
@@ -157,7 +199,8 @@ export interface ManagedAccountInput {
 
 export interface CartItem {
   id: number;
-  listing: StoreProductListing;
+  listing: StoreProductListing | null;
+  combo_listing: StoreComboListing | null;
   quantity: number;
   subtotal: string;
 }

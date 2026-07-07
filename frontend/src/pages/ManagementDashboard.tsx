@@ -3,9 +3,18 @@ import { FormEvent, useEffect, useState } from "react";
 import { api } from "../api/client";
 import { AccountManagementPanel } from "../components/AccountManagementPanel";
 import { useAuth } from "../context/AuthContext";
-import type { Brand, BrandOwnerGroup, Category, FranchiseListing, ManagementDashboard } from "../types";
+import type {
+  Brand,
+  BrandOwnerGroup,
+  Category,
+  Combo,
+  FranchiseListing,
+  ManagementDashboard,
+} from "../types";
 
 const emptyProductForm = { category: "", name: "", spec: "", process: "", suggested_price: "" };
+const emptyComboForm = { name: "", suggested_price: "" };
+const emptyComboItemForm = { product: "", quantity: "1" };
 const emptyBrandForm = { name_zh: "", name_en: "", website: "", note: "" };
 const emptyCategoryForm = {
   name: "",
@@ -21,21 +30,28 @@ export function ManagementDashboardPage() {
   const { user } = useAuth();
   const [data, setData] = useState<ManagementDashboard | null>(null);
   const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesByBrand, setCategoriesByBrand] = useState<Record<number, Category[]>>({});
   const [franchiseListings, setFranchiseListings] = useState<FranchiseListing[]>([]);
   const [newProductForms, setNewProductForms] = useState<Record<number, typeof emptyProductForm>>(
     {}
   );
+  const [newComboForms, setNewComboForms] = useState<Record<number, typeof emptyComboForm>>({});
+  const [newComboItemForms, setNewComboItemForms] = useState<
+    Record<number, typeof emptyComboItemForm>
+  >({});
   const [brandForm, setBrandForm] = useState(emptyBrandForm);
   const [brandFormOwnerId, setBrandFormOwnerId] = useState("");
   const [brandIcon, setBrandIcon] = useState<File | null>(null);
   const [productBrands, setProductBrands] = useState<Brand[]>([]);
-  const [categoryForm, setCategoryForm] = useState(emptyCategoryForm);
-  const [editingCategorySlug, setEditingCategorySlug] = useState<string | null>(null);
+  const [newCategoryForms, setNewCategoryForms] = useState<Record<number, typeof emptyCategoryForm>>(
+    {}
+  );
 
-  async function reloadCategories() {
-    const { data } = await api.get<Category[]>("/products/categories/");
-    setCategories(data);
+  async function loadCategoriesForBrand(brandId: number) {
+    const { data } = await api.get<Category[]>("/products/categories/", {
+      params: { product_brand: brandId },
+    });
+    setCategoriesByBrand((prev) => ({ ...prev, [brandId]: data }));
   }
 
   async function reload() {
@@ -51,10 +67,14 @@ export function ManagementDashboardPage() {
       const { data: brands } = await api.get<Brand[]>("/products/brands/");
       setProductBrands(brands.filter((b) => b.brand_type === "product_brand"));
     }
+    await Promise.all(
+      data.brand_owners
+        .filter((g): g is typeof g & { brand: Brand } => g.brand != null)
+        .map((g) => loadCategoriesForBrand(g.brand.id))
+    );
   }
 
   useEffect(() => {
-    reloadCategories();
     reload().finally(() => setLoading(false));
   }, []);
 
@@ -62,38 +82,40 @@ export function ManagementDashboardPage() {
     return newProductForms[brandOwnerId] ?? emptyProductForm;
   }
 
-  async function handleCreateCategory(event: FormEvent) {
+  function getNewComboForm(brandOwnerId: number) {
+    return newComboForms[brandOwnerId] ?? emptyComboForm;
+  }
+
+  function getNewComboItemForm(comboId: number) {
+    return newComboItemForms[comboId] ?? emptyComboItemForm;
+  }
+
+  function getNewCategoryForm(brandOwnerId: number) {
+    return newCategoryForms[brandOwnerId] ?? emptyCategoryForm;
+  }
+
+  async function handleCreateCategory(group: BrandOwnerGroup, event: FormEvent) {
     event.preventDefault();
-    await api.post("/products/categories/", categoryForm);
-    setCategoryForm(emptyCategoryForm);
-    await reloadCategories();
+    if (!group.brand) return;
+    const form = getNewCategoryForm(group.brand_owner.id);
+    const params = user?.is_superuser ? { brand_id: group.brand.id } : undefined;
+    await api.post("/products/categories/", form, { params });
+    setNewCategoryForms((prev) => ({ ...prev, [group.brand_owner.id]: emptyCategoryForm }));
+    await loadCategoriesForBrand(group.brand.id);
   }
 
-  function startEditingCategory(category: Category) {
-    setEditingCategorySlug(category.slug);
-    setCategoryForm({
-      name: category.name,
-      sub_category_1: category.sub_category_1,
-      sub_category_2: category.sub_category_2,
-      sub_category_3: category.sub_category_3,
-      sub_category_4: category.sub_category_4,
-      sub_category_5: category.sub_category_5,
-      description: category.description,
-    });
+  async function handleUpdateCategory(
+    brandId: number,
+    slug: string,
+    changes: Partial<typeof emptyCategoryForm>
+  ) {
+    await api.patch(`/products/categories/${slug}/`, changes);
+    await loadCategoriesForBrand(brandId);
   }
 
-  async function handleUpdateCategory(event: FormEvent) {
-    event.preventDefault();
-    if (editingCategorySlug == null) return;
-    await api.patch(`/products/categories/${editingCategorySlug}/`, categoryForm);
-    setEditingCategorySlug(null);
-    setCategoryForm(emptyCategoryForm);
-    await reloadCategories();
-  }
-
-  function cancelEditingCategory() {
-    setEditingCategorySlug(null);
-    setCategoryForm(emptyCategoryForm);
+  async function handleDeleteCategory(brandId: number, slug: string) {
+    await api.delete(`/products/categories/${slug}/`);
+    await loadCategoriesForBrand(brandId);
   }
 
   async function handleCreateBrand(event: FormEvent) {
@@ -185,6 +207,60 @@ export function ManagementDashboardPage() {
 
   async function handleDeleteImage(imageId: number) {
     await api.delete(`/products/my-product-images/${imageId}/`);
+    await reload();
+  }
+
+  async function handleCreateCombo(group: BrandOwnerGroup, event: FormEvent) {
+    event.preventDefault();
+    if (!group.brand) return;
+    const form = getNewComboForm(group.brand_owner.id);
+    const params = user?.is_superuser ? { brand_id: group.brand.id } : undefined;
+    await api.post(
+      "/products/my-combos/",
+      { name: form.name, suggested_price: form.suggested_price },
+      { params }
+    );
+    setNewComboForms((prev) => ({ ...prev, [group.brand_owner.id]: emptyComboForm }));
+    await reload();
+  }
+
+  async function handleUpdateCombo(
+    comboId: number,
+    changes: { name?: string; suggested_price?: string }
+  ) {
+    await api.patch(`/products/my-combos/${comboId}/`, changes);
+    await reload();
+  }
+
+  async function handleDeleteCombo(comboId: number) {
+    await api.delete(`/products/my-combos/${comboId}/`);
+    await reload();
+  }
+
+  async function handleUploadComboImage(comboId: number, file: File) {
+    const formData = new FormData();
+    formData.append("image", file);
+    await api.patch(`/products/my-combos/${comboId}/`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    await reload();
+  }
+
+  async function handleAddComboItem(combo: Combo, event: FormEvent) {
+    event.preventDefault();
+    const form = getNewComboItemForm(combo.id);
+    if (!form.product) return;
+    await api.post("/products/my-combo-items/", {
+      combo: combo.id,
+      product: Number(form.product),
+      quantity: Number(form.quantity),
+    });
+    setNewComboItemForms((prev) => ({ ...prev, [combo.id]: emptyComboItemForm }));
+    await reload();
+  }
+
+  async function handleDeleteComboItem(itemId: number) {
+    await api.delete(`/products/my-combo-items/${itemId}/`);
     await reload();
   }
 
@@ -528,103 +604,210 @@ export function ManagementDashboardPage() {
         <div className="erp-panel">
           <div className="erp-panel-title">品牌與產品資料</div>
           <div className="erp-panel-body">
-            {data.brand_owners.some((g) => canEditBrand(g)) && (
-              <div className="erp-group">
-                <div className="erp-group-title">種類管理</div>
-                <form
-                  onSubmit={editingCategorySlug ? handleUpdateCategory : handleCreateCategory}
-                  className="actions"
-                >
-                  <input
-                    placeholder="種類名稱"
-                    value={categoryForm.name}
-                    onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
-                    required
-                  />
-                  <input
-                    placeholder="子種類1"
-                    value={categoryForm.sub_category_1}
-                    onChange={(e) =>
-                      setCategoryForm({ ...categoryForm, sub_category_1: e.target.value })
-                    }
-                  />
-                  <input
-                    placeholder="子種類2"
-                    value={categoryForm.sub_category_2}
-                    onChange={(e) =>
-                      setCategoryForm({ ...categoryForm, sub_category_2: e.target.value })
-                    }
-                  />
-                  <input
-                    placeholder="子種類3"
-                    value={categoryForm.sub_category_3}
-                    onChange={(e) =>
-                      setCategoryForm({ ...categoryForm, sub_category_3: e.target.value })
-                    }
-                  />
-                  <input
-                    placeholder="子種類4"
-                    value={categoryForm.sub_category_4}
-                    onChange={(e) =>
-                      setCategoryForm({ ...categoryForm, sub_category_4: e.target.value })
-                    }
-                  />
-                  <input
-                    placeholder="子種類5"
-                    value={categoryForm.sub_category_5}
-                    onChange={(e) =>
-                      setCategoryForm({ ...categoryForm, sub_category_5: e.target.value })
-                    }
-                  />
-                  <input
-                    placeholder="說明"
-                    value={categoryForm.description}
-                    onChange={(e) =>
-                      setCategoryForm({ ...categoryForm, description: e.target.value })
-                    }
-                  />
-                  <button type="submit">{editingCategorySlug ? "儲存" : "新增種類"}</button>
-                  {editingCategorySlug && (
-                    <button type="button" onClick={cancelEditingCategory}>
-                      取消
-                    </button>
-                  )}
-                </form>
-
-                {categories.length === 0 ? (
-                  <p>尚無種類</p>
-                ) : (
-                  <table className="erp-table">
-                    <thead>
-                      <tr>
-                        <th>名稱</th>
-                        <th>子種類</th>
-                        <th>說明</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {categories.map((category) => (
-                        <tr key={category.id}>
-                          <td>{category.name}</td>
-                          <td>{category.sub_categories.join("、") || "-"}</td>
-                          <td>{category.description || "-"}</td>
-                          <td>
-                            <button onClick={() => startEditingCategory(category)}>編輯</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            )}
-            {data.brand_owners.map((group) => (
+            {data.brand_owners.map((group) => {
+              const brandCategories = group.brand ? categoriesByBrand[group.brand.id] ?? [] : [];
+              return (
               <div key={group.brand_owner.id} className="erp-group">
                 <div className="erp-group-title">
                   {group.brand?.name_zh ??
                     `${group.brand_owner.name || group.brand_owner.username}（尚未擁有品牌）`}
                 </div>
+
+                {group.brand && (
+                  <>
+                    <div className="erp-group-title">種類</div>
+                    {brandCategories.length === 0 ? (
+                      <p>尚無種類</p>
+                    ) : (
+                      <table className="erp-table">
+                        <thead>
+                          <tr>
+                            <th>名稱</th>
+                            <th>子種類</th>
+                            <th>說明</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {brandCategories.map((category) =>
+                            canEditBrand(group) ? (
+                              <tr key={category.id}>
+                                <td>
+                                  <input
+                                    defaultValue={category.name}
+                                    onBlur={(e) =>
+                                      e.target.value !== category.name &&
+                                      handleUpdateCategory(group.brand!.id, category.slug, {
+                                        name: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </td>
+                                <td>
+                                  {[1, 2, 3, 4, 5].map((level) => {
+                                    const key = `sub_category_${level}` as
+                                      | "sub_category_1"
+                                      | "sub_category_2"
+                                      | "sub_category_3"
+                                      | "sub_category_4"
+                                      | "sub_category_5";
+                                    return (
+                                      <input
+                                        key={level}
+                                        placeholder={`子種類${level}`}
+                                        style={{ width: "5rem", marginRight: "0.25rem" }}
+                                        defaultValue={category[key]}
+                                        onBlur={(e) =>
+                                          e.target.value !== category[key] &&
+                                          handleUpdateCategory(group.brand!.id, category.slug, {
+                                            [key]: e.target.value,
+                                          })
+                                        }
+                                      />
+                                    );
+                                  })}
+                                </td>
+                                <td>
+                                  <input
+                                    defaultValue={category.description}
+                                    onBlur={(e) =>
+                                      e.target.value !== category.description &&
+                                      handleUpdateCategory(group.brand!.id, category.slug, {
+                                        description: e.target.value,
+                                      })
+                                    }
+                                  />
+                                </td>
+                                <td>
+                                  <button
+                                    onClick={() =>
+                                      handleDeleteCategory(group.brand!.id, category.slug)
+                                    }
+                                  >
+                                    刪除
+                                  </button>
+                                </td>
+                              </tr>
+                            ) : (
+                              <tr key={category.id}>
+                                <td>{category.name}</td>
+                                <td>{category.sub_categories.join("、") || "-"}</td>
+                                <td>{category.description || "-"}</td>
+                                <td></td>
+                              </tr>
+                            )
+                          )}
+                        </tbody>
+                      </table>
+                    )}
+
+                    {canEditBrand(group) && (
+                      <form
+                        onSubmit={(e) => handleCreateCategory(group, e)}
+                        className="erp-group"
+                        style={{ marginTop: "0.75rem" }}
+                      >
+                        <div className="erp-group-title">新增種類</div>
+                        <div className="actions">
+                          <input
+                            placeholder="種類名稱"
+                            value={getNewCategoryForm(group.brand_owner.id).name}
+                            onChange={(e) =>
+                              setNewCategoryForms((prev) => ({
+                                ...prev,
+                                [group.brand_owner.id]: {
+                                  ...getNewCategoryForm(group.brand_owner.id),
+                                  name: e.target.value,
+                                },
+                              }))
+                            }
+                            required
+                          />
+                          <input
+                            placeholder="子種類1"
+                            value={getNewCategoryForm(group.brand_owner.id).sub_category_1}
+                            onChange={(e) =>
+                              setNewCategoryForms((prev) => ({
+                                ...prev,
+                                [group.brand_owner.id]: {
+                                  ...getNewCategoryForm(group.brand_owner.id),
+                                  sub_category_1: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <input
+                            placeholder="子種類2"
+                            value={getNewCategoryForm(group.brand_owner.id).sub_category_2}
+                            onChange={(e) =>
+                              setNewCategoryForms((prev) => ({
+                                ...prev,
+                                [group.brand_owner.id]: {
+                                  ...getNewCategoryForm(group.brand_owner.id),
+                                  sub_category_2: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <input
+                            placeholder="子種類3"
+                            value={getNewCategoryForm(group.brand_owner.id).sub_category_3}
+                            onChange={(e) =>
+                              setNewCategoryForms((prev) => ({
+                                ...prev,
+                                [group.brand_owner.id]: {
+                                  ...getNewCategoryForm(group.brand_owner.id),
+                                  sub_category_3: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <input
+                            placeholder="子種類4"
+                            value={getNewCategoryForm(group.brand_owner.id).sub_category_4}
+                            onChange={(e) =>
+                              setNewCategoryForms((prev) => ({
+                                ...prev,
+                                [group.brand_owner.id]: {
+                                  ...getNewCategoryForm(group.brand_owner.id),
+                                  sub_category_4: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <input
+                            placeholder="子種類5"
+                            value={getNewCategoryForm(group.brand_owner.id).sub_category_5}
+                            onChange={(e) =>
+                              setNewCategoryForms((prev) => ({
+                                ...prev,
+                                [group.brand_owner.id]: {
+                                  ...getNewCategoryForm(group.brand_owner.id),
+                                  sub_category_5: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <input
+                            placeholder="說明"
+                            value={getNewCategoryForm(group.brand_owner.id).description}
+                            onChange={(e) =>
+                              setNewCategoryForms((prev) => ({
+                                ...prev,
+                                [group.brand_owner.id]: {
+                                  ...getNewCategoryForm(group.brand_owner.id),
+                                  description: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                          <button type="submit">新增種類</button>
+                        </div>
+                      </form>
+                    )}
+                  </>
+                )}
+
                 {group.products.length === 0 ? (
                   <p>尚無產品</p>
                 ) : (
@@ -735,7 +918,7 @@ export function ManagementDashboardPage() {
                         required
                       >
                         <option value="">種類</option>
-                        {categories.map((c) => (
+                        {brandCategories.map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.name}
                           </option>
@@ -800,8 +983,178 @@ export function ManagementDashboardPage() {
                     </div>
                   </form>
                 )}
+
+                <div className="erp-group-title" style={{ marginTop: "1rem" }}>
+                  套餐
+                </div>
+                {group.combos.length === 0 ? (
+                  <p>尚無套餐</p>
+                ) : (
+                  <table className="erp-table">
+                    <thead>
+                      <tr>
+                        <th>LOGO</th>
+                        <th>名稱</th>
+                        <th>套餐內容</th>
+                        <th>建議價格</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.combos.map((combo) =>
+                        canEditBrand(group) ? (
+                          <tr key={combo.id}>
+                            <td>
+                              {combo.image && (
+                                <img src={combo.image} alt="" style={{ height: "28px" }} />
+                              )}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) handleUploadComboImage(combo.id, file);
+                                }}
+                              />
+                            </td>
+                            <td>
+                              <input
+                                defaultValue={combo.name}
+                                onBlur={(e) =>
+                                  e.target.value !== combo.name &&
+                                  handleUpdateCombo(combo.id, { name: e.target.value })
+                                }
+                              />
+                            </td>
+                            <td>
+                              {combo.items.map((item) => (
+                                <div key={item.id} style={{ whiteSpace: "nowrap" }}>
+                                  {item.product.name} x {item.quantity}{" "}
+                                  <button onClick={() => handleDeleteComboItem(item.id)}>×</button>
+                                </div>
+                              ))}
+                              <form
+                                onSubmit={(e) => handleAddComboItem(combo, e)}
+                                className="actions"
+                                style={{ marginTop: "0.35rem" }}
+                              >
+                                <select
+                                  value={getNewComboItemForm(combo.id).product}
+                                  onChange={(e) =>
+                                    setNewComboItemForms((prev) => ({
+                                      ...prev,
+                                      [combo.id]: {
+                                        ...getNewComboItemForm(combo.id),
+                                        product: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                  required
+                                >
+                                  <option value="">選擇產品</option>
+                                  {group.products.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                      {p.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  style={{ width: "4rem" }}
+                                  value={getNewComboItemForm(combo.id).quantity}
+                                  onChange={(e) =>
+                                    setNewComboItemForms((prev) => ({
+                                      ...prev,
+                                      [combo.id]: {
+                                        ...getNewComboItemForm(combo.id),
+                                        quantity: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                  required
+                                />
+                                <button type="submit">新增內容</button>
+                              </form>
+                            </td>
+                            <td>
+                              <input
+                                type="number"
+                                defaultValue={combo.suggested_price}
+                                onBlur={(e) =>
+                                  e.target.value !== combo.suggested_price &&
+                                  handleUpdateCombo(combo.id, { suggested_price: e.target.value })
+                                }
+                              />
+                            </td>
+                            <td>
+                              <button onClick={() => handleDeleteCombo(combo.id)}>刪除</button>
+                            </td>
+                          </tr>
+                        ) : (
+                          <tr key={combo.id}>
+                            <td>
+                              {combo.image && (
+                                <img src={combo.image} alt="" style={{ height: "28px" }} />
+                              )}
+                            </td>
+                            <td>{combo.name}</td>
+                            <td>
+                              {combo.items.map((item) => `${item.product.name} x ${item.quantity}`).join("、")}
+                            </td>
+                            <td>NT$ {combo.selling_price}</td>
+                            <td></td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                )}
+
+                {canEditBrand(group) && group.brand && (
+                  <form
+                    onSubmit={(e) => handleCreateCombo(group, e)}
+                    className="erp-group"
+                    style={{ marginTop: "0.75rem" }}
+                  >
+                    <div className="erp-group-title">新增套餐</div>
+                    <div className="actions">
+                      <input
+                        placeholder="套餐名稱"
+                        value={getNewComboForm(group.brand_owner.id).name}
+                        onChange={(e) =>
+                          setNewComboForms((prev) => ({
+                            ...prev,
+                            [group.brand_owner.id]: {
+                              ...getNewComboForm(group.brand_owner.id),
+                              name: e.target.value,
+                            },
+                          }))
+                        }
+                        required
+                      />
+                      <input
+                        type="number"
+                        placeholder="建議價格"
+                        value={getNewComboForm(group.brand_owner.id).suggested_price}
+                        onChange={(e) =>
+                          setNewComboForms((prev) => ({
+                            ...prev,
+                            [group.brand_owner.id]: {
+                              ...getNewComboForm(group.brand_owner.id),
+                              suggested_price: e.target.value,
+                            },
+                          }))
+                        }
+                        required
+                      />
+                      <button type="submit">新增套餐</button>
+                    </div>
+                  </form>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

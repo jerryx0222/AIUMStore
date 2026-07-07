@@ -52,10 +52,69 @@ body {
   border-radius: 4px;
 }
 
+.products-layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.brand-sidebar {
+  flex: 0 0 180px;
+}
+
+.brand-sidebar ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.brand-sidebar button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.brand-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.brand-sidebar button.active {
+  border-color: #1f2937;
+  background: #1f2937;
+  color: #fff;
+}
+
+.products-main {
+  flex: 1;
+  min-width: 0;
+}
+
 .product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1rem;
+}
+
+.back-button {
+  margin-bottom: 1rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
 }
 
 .product-card {
@@ -73,6 +132,27 @@ body {
   height: 150px;
   object-fit: cover;
   border-radius: 4px;
+}
+
+.combo-item-list {
+  margin: 0.25rem 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.brand-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.brand-group-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
 }
 
 .product-detail img {

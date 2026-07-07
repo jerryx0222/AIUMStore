@@ -6,8 +6,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from products.models import Product
-from products.serializers import BrandSerializer, ProductSerializer
+from products.models import Combo, Product
+from products.serializers import BrandSerializer, ComboSerializer, ProductSerializer
 
 from .permissions import IsFranchiseMasterRole, IsSuperUser
 from .serializers import (
@@ -163,11 +163,13 @@ class ManagementDashboardView(APIView):
             for owner in owners:
                 brand = getattr(owner, "owned_brand", None)
                 products = brand.products.all() if brand else Product.objects.none()
+                combos = brand.combos.all() if brand else Combo.objects.none()
                 brand_owners.append(
                     {
                         "brand_owner": PersonBriefSerializer(owner).data,
                         "brand": BrandSerializer(brand).data if brand else None,
                         "products": ProductSerializer(products, many=True).data,
+                        "combos": ComboSerializer(combos, many=True).data,
                     }
                 )
 

@@ -35,9 +35,22 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
+    """訂單項目：listing(商品上架) 與 combo_listing(套餐上架) 恰擇一，比照 CartItem 的作法"""
+
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
     listing = models.ForeignKey(
-        "products.StoreProductListing", on_delete=models.PROTECT, related_name="order_items"
+        "products.StoreProductListing",
+        on_delete=models.PROTECT,
+        related_name="order_items",
+        null=True,
+        blank=True,
+    )
+    combo_listing = models.ForeignKey(
+        "products.StoreComboListing",
+        on_delete=models.PROTECT,
+        related_name="order_items",
+        null=True,
+        blank=True,
     )
     product_name = models.CharField("商品名稱", max_length=150)
     store_name = models.CharField("門市名稱", max_length=150)
@@ -47,6 +60,15 @@ class OrderItem(models.Model):
     class Meta:
         verbose_name = "訂單項目"
         verbose_name_plural = "訂單項目"
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(listing__isnull=False, combo_listing__isnull=True)
+                    | models.Q(listing__isnull=True, combo_listing__isnull=False)
+                ),
+                name="orderitem_listing_xor_combo_listing",
+            )
+        ]
 
     def __str__(self):
         return f"{self.product_name} x {self.quantity}"

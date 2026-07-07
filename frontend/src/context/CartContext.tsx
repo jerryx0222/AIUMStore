@@ -7,6 +7,7 @@ interface CartContextValue {
   cart: Cart | null;
   refreshCart: () => Promise<void>;
   addItem: (listingId: number, quantity?: number) => Promise<void>;
+  addComboItem: (comboListingId: number, quantity?: number) => Promise<void>;
   updateItem: (itemId: number, quantity: number) => Promise<void>;
   removeItem: (itemId: number) => Promise<void>;
 }
@@ -29,6 +30,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCart(data);
   }
 
+  async function addComboItem(comboListingId: number, quantity = 1) {
+    const { data } = await api.post<Cart>("/cart/items/", {
+      combo_listing_id: comboListingId,
+      quantity,
+    });
+    setCart(data);
+  }
+
   async function updateItem(itemId: number, quantity: number) {
     const { data } = await api.patch<Cart>(`/cart/items/${itemId}/`, { quantity });
     setCart(data);
@@ -40,7 +49,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <CartContext.Provider value={{ cart, refreshCart, addItem, updateItem, removeItem }}>
+    <CartContext.Provider
+      value={{ cart, refreshCart, addItem, addComboItem, updateItem, removeItem }}
+    >
       {children}
     </CartContext.Provider>
   );

@@ -55,6 +55,9 @@ export function ProductDetailPage() {
 
   return (
     <div className="product-detail">
+      <button className="back-button" onClick={() => navigate(-1)}>
+        ← 返回
+      </button>
       {product.images[0] && <img src={product.images[0].image} alt={product.name} />}
       <h1>{product.name}</h1>
       {product.product_brand_name && (
@@ -73,7 +76,7 @@ export function ProductDetailPage() {
           .filter(Boolean)
           .join(" / ")}
       </p>
-      <p>規格: {product.spec || "無"}</p>
+      {product.spec && <p>規格: {product.spec}</p>}
       <p>建議價格: NT$ {product.suggested_price}</p>
       <div className="variants">
         {listings.map((listing) => (

@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import F, Sum
+from django.db.models import F, Q, Sum
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
@@ -47,7 +47,12 @@ class CheckoutView(APIView):
 
         cart = (
             Cart.objects.filter(user=request.user)
-            .prefetch_related("items__listing__product", "items__listing__franchise_brand")
+            .prefetch_related(
+                "items__listing__product",
+                "items__listing__franchise_brand",
+                "items__combo_listing__combo",
+                "items__combo_listing__franchise_brand",
+            )
             .first()
         )
         if not cart or not cart.items.exists():
@@ -61,13 +66,15 @@ class CheckoutView(APIView):
 
         subtotal = Decimal("0")
         for cart_item in cart.items.all():
-            listing = cart_item.listing
-            price = listing.effective_price
+            target = cart_item.listing or cart_item.combo_listing
+            price = target.effective_price
+            product_name = target.product.name if cart_item.listing else target.combo.name
             OrderItem.objects.create(
                 order=order,
-                listing=listing,
-                product_name=listing.product.name,
-                store_name=listing.franchise_brand.name_zh,
+                listing=cart_item.listing,
+                combo_listing=cart_item.combo_listing,
+                product_name=product_name,
+                store_name=target.franchise_brand.name_zh,
                 price=price,
                 quantity=cart_item.quantity,
             )
@@ -138,7 +145,7 @@ class StoreDashboardView(APIView):
             return Response({"detail": "尚未建立門市資料"}, status=status.HTTP_404_NOT_FOUND)
 
         items = OrderItem.objects.filter(
-            listing__franchise_brand=store,
+            Q(listing__franchise_brand=store) | Q(combo_listing__franchise_brand=store),
             order__status__in=[
                 Order.Status.PAID,
                 Order.Status.SHIPPED,

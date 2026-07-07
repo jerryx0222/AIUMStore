@@ -41,9 +41,11 @@ export function CartPage() {
           {cart.items.map((item) => (
             <tr key={item.id}>
               <td>
-                {item.listing.product.name}（{item.listing.franchise_brand_name}）
+                {item.listing
+                  ? `${item.listing.product.name}（${item.listing.franchise_brand_name}）`
+                  : `${item.combo_listing!.combo.name}［套餐］（${item.combo_listing!.franchise_brand_name}）`}
               </td>
-              <td>NT$ {item.listing.price}</td>
+              <td>NT$ {item.listing ? item.listing.price : item.combo_listing!.price}</td>
               <td>
                 <input
                   type="number"
