@@ -55,7 +55,7 @@ CREATE TABLE `accounts_person` (
   CONSTRAINT `accounts_person_manager_id_aa2b1dec_fk_accounts_person_id` FOREIGN KEY (`manager_id`) REFERENCES `accounts_person` (`id`),
   CONSTRAINT `accounts_person_chk_1` CHECK ((`member_level` >= 0)),
   CONSTRAINT `accounts_person_chk_2` CHECK ((`points` >= 0))
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -68,7 +68,9 @@ LOCK TABLES `accounts_person` WRITE;
 INSERT INTO `accounts_person` VALUES
 (1,'pbkdf2_sha256$720000$NyEveUshadwqHitfbRJUg0$f8b+acI65GZP7TLjD5z3esM2uJXP+Xyyb/HCl+8Taqk=',NULL,1,'jerryx0222','','','jerryx0222@gmail.com',1,1,'2026-07-06 04:18:38.953989','superuser','','','','','','',1,0,0.00,NULL,NULL),
 (8,'pbkdf2_sha256$720000$enlmt6vmD2c5hApQsAQZMG$Ke+FQthDkE0YarRuhanu+fAfoeQlHe3v6jIqIG6yRsM=',NULL,0,'j50','','','',0,1,'2026-07-06 07:55:25.366973','brand_owner','王五十','','','','','',NULL,NULL,NULL,NULL,NULL),
-(9,'pbkdf2_sha256$720000$rICVz9AodzJgHBBnFTighU$PIIglyNkhjYW9D1ipwkR51/Sglg4CDtbVn9QHfdME1M=',NULL,0,'wutea','','','',0,1,'2026-07-06 07:56:15.786772','brand_owner','吳紅茶','','','','','',NULL,NULL,NULL,NULL,NULL);
+(9,'pbkdf2_sha256$720000$rICVz9AodzJgHBBnFTighU$PIIglyNkhjYW9D1ipwkR51/Sglg4CDtbVn9QHfdME1M=',NULL,0,'wutea','','','',0,1,'2026-07-06 07:56:15.786772','brand_owner','吳紅茶','','','','','',NULL,NULL,NULL,NULL,NULL),
+(10,'pbkdf2_sha256$720000$AP3wyDW6laDpXLq23xJNWX$KTWYK3QZ1/nXm/K4nuXX1Ab1d988ycv6XVso6mg98Bg=',NULL,0,'fatdaddy','','','',0,1,'2026-07-07 01:53:12.520087','brand_owner','胖老爹','','','','','',NULL,NULL,NULL,NULL,NULL),
+(12,'pbkdf2_sha256$720000$UGfpyIpNmIfoEniovm8TdS$2cnvBddkWiztjihJlZ4CKG/Tau9Quxb2c68vkaznPHc=',NULL,0,'jack','','','',0,1,'2026-07-07 03:55:42.205934','franchise_master','李加盟','','','','','',NULL,NULL,NULL,NULL,NULL);
 /*!40000 ALTER TABLE `accounts_person` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -271,7 +273,7 @@ CREATE TABLE `auth_permission` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `auth_permission_content_type_id_codename_01ab375a_uniq` (`content_type_id`,`codename`),
   CONSTRAINT `auth_permission_content_type_id_2f476e4b_fk_django_co` FOREIGN KEY (`content_type_id`) REFERENCES `django_content_type` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=73 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=85 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -353,7 +355,19 @@ INSERT INTO `auth_permission` VALUES
 (69,'Can add 付款紀錄',18,'add_payment'),
 (70,'Can change 付款紀錄',18,'change_payment'),
 (71,'Can delete 付款紀錄',18,'delete_payment'),
-(72,'Can view 付款紀錄',18,'view_payment');
+(72,'Can view 付款紀錄',18,'view_payment'),
+(73,'Can add 套餐',19,'add_combo'),
+(74,'Can change 套餐',19,'change_combo'),
+(75,'Can delete 套餐',19,'delete_combo'),
+(76,'Can view 套餐',19,'view_combo'),
+(77,'Can add 套餐內容',20,'add_comboitem'),
+(78,'Can change 套餐內容',20,'change_comboitem'),
+(79,'Can delete 套餐內容',20,'delete_comboitem'),
+(80,'Can view 套餐內容',20,'view_comboitem'),
+(81,'Can add 門市套餐上架',21,'add_storecombolisting'),
+(82,'Can change 門市套餐上架',21,'change_storecombolisting'),
+(83,'Can delete 門市套餐上架',21,'delete_storecombolisting'),
+(84,'Can view 門市套餐上架',21,'view_storecombolisting');
 /*!40000 ALTER TABLE `auth_permission` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -374,7 +388,7 @@ CREATE TABLE `cart_cart` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_id` (`user_id`),
   CONSTRAINT `cart_cart_user_id_9b4220b9_fk_accounts_person_id` FOREIGN KEY (`user_id`) REFERENCES `accounts_person` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -402,14 +416,19 @@ CREATE TABLE `cart_cartitem` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `quantity` int unsigned NOT NULL,
   `cart_id` bigint NOT NULL,
-  `listing_id` bigint NOT NULL,
+  `listing_id` bigint DEFAULT NULL,
+  `combo_listing_id` bigint DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `cart_cartitem_cart_id_listing_id_3b7cae8f_uniq` (`cart_id`,`listing_id`),
+  UNIQUE KEY `cart_cartitem_cart_id_listing_id_combo_listing_id_4e114a71_uniq` (`cart_id`,`listing_id`,`combo_listing_id`),
   KEY `cart_cartitem_listing_id_7dbdaf35_fk_products_` (`listing_id`),
+  KEY `cart_cartitem_cart_id_370ad265` (`cart_id`),
+  KEY `cart_cartitem_combo_listing_id_88a19937_fk_products_` (`combo_listing_id`),
   CONSTRAINT `cart_cartitem_cart_id_370ad265_fk_cart_cart_id` FOREIGN KEY (`cart_id`) REFERENCES `cart_cart` (`id`),
+  CONSTRAINT `cart_cartitem_combo_listing_id_88a19937_fk_products_` FOREIGN KEY (`combo_listing_id`) REFERENCES `products_storecombolisting` (`id`),
   CONSTRAINT `cart_cartitem_listing_id_7dbdaf35_fk_products_` FOREIGN KEY (`listing_id`) REFERENCES `products_storeproductlisting` (`id`),
-  CONSTRAINT `cart_cartitem_chk_1` CHECK ((`quantity` >= 0))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `cart_cartitem_chk_1` CHECK ((`quantity` >= 0)),
+  CONSTRAINT `cartitem_listing_xor_combo_listing` CHECK ((((`combo_listing_id` is null) and (`listing_id` is not null)) or ((`combo_listing_id` is not null) and (`listing_id` is null))))
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -474,7 +493,7 @@ CREATE TABLE `django_content_type` (
   `model` varchar(100) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `django_content_type_app_label_model_76bd3d3b_uniq` (`app_label`,`model`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -497,8 +516,11 @@ INSERT INTO `django_content_type` VALUES
 (18,'orders','payment'),
 (10,'products','brand'),
 (9,'products','category'),
+(19,'products','combo'),
+(20,'products','comboitem'),
 (11,'products','product'),
 (12,'products','productimage'),
+(21,'products','storecombolisting'),
 (13,'products','storeproductlisting'),
 (5,'sessions','session'),
 (6,'token_blacklist','blacklistedtoken'),
@@ -521,7 +543,7 @@ CREATE TABLE `django_migrations` (
   `name` varchar(255) NOT NULL,
   `applied` datetime(6) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=38 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=45 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -568,7 +590,14 @@ INSERT INTO `django_migrations` VALUES
 (34,'token_blacklist','0008_migrate_to_bigautofield','2026-07-06 03:53:08.242978'),
 (35,'token_blacklist','0010_fix_migrate_to_bigautofield','2026-07-06 03:53:08.270652'),
 (36,'token_blacklist','0011_linearizes_history','2026-07-06 03:53:08.277771'),
-(37,'token_blacklist','0012_alter_outstandingtoken_user','2026-07-06 03:53:08.299972');
+(37,'token_blacklist','0012_alter_outstandingtoken_user','2026-07-06 03:53:08.299972'),
+(38,'products','0004_combo_comboitem_storecombolisting','2026-07-07 02:59:58.982731'),
+(39,'cart','0002_alter_cartitem_unique_together_and_more','2026-07-07 02:59:59.791139'),
+(40,'orders','0002_orderitem_combo_listing_alter_orderitem_listing_and_more','2026-07-07 03:00:00.433668'),
+(41,'products','0005_category_product_brand','2026-07-07 04:39:23.715859'),
+(42,'products','0006_backfill_category_product_brand','2026-07-07 04:39:23.744532'),
+(43,'products','0007_require_category_product_brand','2026-07-07 04:51:53.582506'),
+(44,'products','0008_combo_image','2026-07-07 08:40:47.817720');
 /*!40000 ALTER TABLE `django_migrations` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -649,13 +678,17 @@ CREATE TABLE `orders_orderitem` (
   `store_name` varchar(150) NOT NULL,
   `price` decimal(10,2) NOT NULL,
   `quantity` int unsigned NOT NULL,
-  `listing_id` bigint NOT NULL,
+  `listing_id` bigint DEFAULT NULL,
   `order_id` bigint NOT NULL,
+  `combo_listing_id` bigint DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `orders_orderitem_listing_id_bf2cb9e3_fk_products_` (`listing_id`),
   KEY `orders_orderitem_order_id_fe61a34d_fk_orders_order_id` (`order_id`),
+  KEY `orders_orderitem_combo_listing_id_dcb8ce08_fk_products_` (`combo_listing_id`),
+  CONSTRAINT `orders_orderitem_combo_listing_id_dcb8ce08_fk_products_` FOREIGN KEY (`combo_listing_id`) REFERENCES `products_storecombolisting` (`id`),
   CONSTRAINT `orders_orderitem_listing_id_bf2cb9e3_fk_products_` FOREIGN KEY (`listing_id`) REFERENCES `products_storeproductlisting` (`id`),
   CONSTRAINT `orders_orderitem_order_id_fe61a34d_fk_orders_order_id` FOREIGN KEY (`order_id`) REFERENCES `orders_order` (`id`),
+  CONSTRAINT `orderitem_listing_xor_combo_listing` CHECK ((((`combo_listing_id` is null) and (`listing_id` is not null)) or ((`combo_listing_id` is not null) and (`listing_id` is null)))),
   CONSTRAINT `orders_orderitem_chk_1` CHECK ((`quantity` >= 0))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -728,7 +761,7 @@ CREATE TABLE `products_brand` (
   KEY `products_brand_contact_id_c0fd886e_fk_accounts_person_id` (`contact_id`),
   CONSTRAINT `products_brand_contact_id_c0fd886e_fk_accounts_person_id` FOREIGN KEY (`contact_id`) REFERENCES `accounts_person` (`id`),
   CONSTRAINT `products_brand_owner_id_e065bf86_fk_accounts_person_id` FOREIGN KEY (`owner_id`) REFERENCES `accounts_person` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -740,7 +773,8 @@ LOCK TABLES `products_brand` WRITE;
 /*!40000 ALTER TABLE `products_brand` DISABLE KEYS */;
 INSERT INTO `products_brand` VALUES
 (3,'product_brand','','50嵐-中區','brands/images.png','','雅嵐股份有限公司','2026-07-06 06:25:23.885325',NULL,8),
-(5,'product_brand','','吳家紅茶冰','brands/images_2_1cBnmXy.jpg','https://www.wujiatea.com.tw','','2026-07-06 06:32:58.723415',NULL,9);
+(5,'product_brand','','吳家紅茶冰','brands/images_2_1cBnmXy.jpg','https://www.wujiatea.com.tw','','2026-07-06 06:32:58.723415',NULL,9),
+(9,'product_brand','','胖老爹美式炸雞','brands/fatdaddy.png','','台中市西屯區烈美街88號','2026-07-07 01:51:01.347602',NULL,10);
 /*!40000 ALTER TABLE `products_brand` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -762,7 +796,7 @@ CREATE TABLE `products_brand_carried_product_brands` (
   KEY `products_brand_carri_to_brand_id_d993708a_fk_products_` (`to_brand_id`),
   CONSTRAINT `products_brand_carri_from_brand_id_96e641a7_fk_products_` FOREIGN KEY (`from_brand_id`) REFERENCES `products_brand` (`id`),
   CONSTRAINT `products_brand_carri_to_brand_id_d993708a_fk_products_` FOREIGN KEY (`to_brand_id`) REFERENCES `products_brand` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -795,9 +829,12 @@ CREATE TABLE `products_category` (
   `sub_category_5` varchar(50) NOT NULL,
   `description` longtext NOT NULL,
   `created_at` datetime(6) NOT NULL,
+  `product_brand_id` bigint NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `slug` (`slug`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  UNIQUE KEY `slug` (`slug`),
+  KEY `products_category_product_brand_id_f7f478b5_fk_products_brand_id` (`product_brand_id`),
+  CONSTRAINT `products_category_product_brand_id_f7f478b5_fk_products_brand_id` FOREIGN KEY (`product_brand_id`) REFERENCES `products_brand` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -808,11 +845,92 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `products_category` WRITE;
 /*!40000 ALTER TABLE `products_category` DISABLE KEYS */;
 INSERT INTO `products_category` VALUES
-(3,'找好茶','找好茶','','','','','','','2026-07-06 11:20:17.106637'),
-(4,'找奶茶(奶精)','找奶茶奶精','','','','','','','2026-07-06 11:20:43.656637'),
-(5,'綠茶類','綠茶類','','','','','','','2026-07-06 11:24:27.992711'),
-(6,'紅茶類','紅茶類','','','','','','','2026-07-06 11:24:42.786782');
+(3,'吳家紅茶','吳家紅茶-2','','','','','','','2026-07-06 11:20:17.106637',3),
+(4,'吳家紅茶','吳家紅茶','','','','','','','2026-07-06 11:20:43.656637',3),
+(5,'美式奶香','美式奶香-2','','','','','','','2026-07-06 11:24:27.992711',5),
+(6,'經典小物','經典小物-2','','','','','','','2026-07-06 11:24:42.786782',5),
+(7,'泰式風味','泰式風味-2','','','','','','','2026-07-07 02:24:24.005402',5),
+(8,'找奶茶(奶精)','找奶茶奶精','','','','','','','2026-07-07 03:44:23.828195',3),
+(9,'找好茶','找好茶','','','','','','','2026-07-07 03:44:32.019647',3),
+(11,'美式奶香','美式奶香','','','','','','','2026-07-07 07:51:35.230988',9),
+(12,'泰式風味','泰式風味','','','','','','','2026-07-07 07:51:51.424683',9),
+(13,'經典小物','經典小物','','','','','','','2026-07-07 07:52:08.749540',9);
 /*!40000 ALTER TABLE `products_category` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `products_combo`
+--
+
+DROP TABLE IF EXISTS `products_combo`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `products_combo` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(150) NOT NULL,
+  `slug` varchar(150) NOT NULL,
+  `suggested_price` decimal(10,2) NOT NULL,
+  `selling_price` decimal(10,2) DEFAULT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  `product_brand_id` bigint NOT NULL,
+  `image` varchar(100) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `slug` (`slug`),
+  KEY `products_combo_product_brand_id_827eb372_fk_products_brand_id` (`product_brand_id`),
+  CONSTRAINT `products_combo_product_brand_id_827eb372_fk_products_brand_id` FOREIGN KEY (`product_brand_id`) REFERENCES `products_brand` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `products_combo`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `products_combo` WRITE;
+/*!40000 ALTER TABLE `products_combo` DISABLE KEYS */;
+INSERT INTO `products_combo` VALUES
+(4,'1號餐','4',105.00,105.00,'2026-07-07 06:35:18.116709','2026-07-07 06:35:18.116731',9,NULL);
+/*!40000 ALTER TABLE `products_combo` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `products_comboitem`
+--
+
+DROP TABLE IF EXISTS `products_comboitem`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `products_comboitem` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `quantity` int unsigned NOT NULL,
+  `combo_id` bigint NOT NULL,
+  `product_id` bigint NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `products_comboitem_combo_id_product_id_839866e8_uniq` (`combo_id`,`product_id`),
+  KEY `products_comboitem_product_id_97bd5e83_fk_products_product_id` (`product_id`),
+  CONSTRAINT `products_comboitem_combo_id_8d79d6f1_fk_products_combo_id` FOREIGN KEY (`combo_id`) REFERENCES `products_combo` (`id`),
+  CONSTRAINT `products_comboitem_product_id_97bd5e83_fk_products_product_id` FOREIGN KEY (`product_id`) REFERENCES `products_product` (`id`),
+  CONSTRAINT `products_comboitem_chk_1` CHECK ((`quantity` >= 0))
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `products_comboitem`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `products_comboitem` WRITE;
+/*!40000 ALTER TABLE `products_comboitem` DISABLE KEYS */;
+INSERT INTO `products_comboitem` VALUES
+(5,1,4,12),
+(6,1,4,11),
+(7,1,4,13);
+/*!40000 ALTER TABLE `products_comboitem` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
@@ -842,7 +960,7 @@ CREATE TABLE `products_product` (
   KEY `products_product_product_brand_id_1d698d6e_fk_products_brand_id` (`product_brand_id`),
   CONSTRAINT `products_product_category_id_9b594869_fk_products_category_id` FOREIGN KEY (`category_id`) REFERENCES `products_category` (`id`),
   CONSTRAINT `products_product_product_brand_id_1d698d6e_fk_products_brand_id` FOREIGN KEY (`product_brand_id`) REFERENCES `products_brand` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -860,7 +978,11 @@ INSERT INTO `products_product` VALUES
 (5,'金萱綠茶','5','L','',25.00,25.00,'2026-07-06 11:26:04.004224','2026-07-06 11:26:04.004265',5,5),
 (6,'金萱綠茶','6','XL','',30.00,30.00,'2026-07-06 11:26:19.284690','2026-07-06 11:26:19.284725',5,5),
 (7,'吳家紅茶','7','L','',25.00,25.00,'2026-07-06 11:26:43.528574','2026-07-06 11:26:43.528625',6,5),
-(8,'吳家紅茶','8','XL','',30.00,30.00,'2026-07-06 11:26:57.914660','2026-07-06 11:26:57.914757',6,5);
+(8,'吳家紅茶','8','XL','',30.00,30.00,'2026-07-06 11:26:57.914660','2026-07-06 11:26:57.914757',6,5),
+(9,'奶茶','9','L','',55.00,55.00,'2026-07-07 03:52:32.263818','2026-07-07 03:52:32.263838',8,3),
+(11,'雞塊','11','','',55.00,55.00,'2026-07-07 07:54:34.460707','2026-07-07 07:54:34.460725',11,9),
+(12,'雞翅','12','','',40.00,40.00,'2026-07-07 07:55:01.308338','2026-07-07 07:55:01.308356',11,9),
+(13,'飲料','13','','',0.00,0.00,'2026-07-07 07:56:26.710332','2026-07-07 07:56:26.710352',13,9);
 /*!40000 ALTER TABLE `products_product` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -882,7 +1004,7 @@ CREATE TABLE `products_productimage` (
   KEY `products_productimage_product_id_e747596a_fk_products_product_id` (`product_id`),
   CONSTRAINT `products_productimage_product_id_e747596a_fk_products_product_id` FOREIGN KEY (`product_id`) REFERENCES `products_product` (`id`),
   CONSTRAINT `products_productimage_chk_1` CHECK ((`sort_order` >= 0))
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -894,8 +1016,54 @@ LOCK TABLES `products_productimage` WRITE;
 /*!40000 ALTER TABLE `products_productimage` DISABLE KEYS */;
 INSERT INTO `products_productimage` VALUES
 (1,'products/wered.jpg',0,7),
-(2,'products/wered_Ki1pEpz.jpg',0,8);
+(2,'products/wered_Ki1pEpz.jpg',0,8),
+(3,'products/金萱綠茶.jpg',0,6),
+(4,'products/金萱綠茶_lHDfMnk.jpg',0,5),
+(5,'products/奶茶.jfif',0,4),
+(6,'products/奶茶_rTlfIdz.jfif',0,3),
+(7,'products/苿莉綠茶.jfif',0,2),
+(8,'products/苿莉綠茶_5xIzVza.jfif',0,1),
+(9,'products/002.jpg',0,12),
+(10,'products/001.jpg',0,11),
+(11,'products/images.jfif',0,13);
 /*!40000 ALTER TABLE `products_productimage` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `products_storecombolisting`
+--
+
+DROP TABLE IF EXISTS `products_storecombolisting`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `products_storecombolisting` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `stock` int unsigned NOT NULL,
+  `actual_price` decimal(10,2) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  `combo_id` bigint NOT NULL,
+  `franchise_brand_id` bigint NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `products_storecombolisti_franchise_brand_id_combo_31fb148e_uniq` (`franchise_brand_id`,`combo_id`),
+  KEY `products_storecombol_combo_id_a8d75c03_fk_products_` (`combo_id`),
+  CONSTRAINT `products_storecombol_combo_id_a8d75c03_fk_products_` FOREIGN KEY (`combo_id`) REFERENCES `products_combo` (`id`),
+  CONSTRAINT `products_storecombol_franchise_brand_id_2db7749b_fk_products_` FOREIGN KEY (`franchise_brand_id`) REFERENCES `products_brand` (`id`),
+  CONSTRAINT `products_storecombolisting_chk_1` CHECK ((`stock` >= 0))
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `products_storecombolisting`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `products_storecombolisting` WRITE;
+/*!40000 ALTER TABLE `products_storecombolisting` DISABLE KEYS */;
+/*!40000 ALTER TABLE `products_storecombolisting` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
@@ -951,7 +1119,7 @@ CREATE TABLE `token_blacklist_blacklistedtoken` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `token_id` (`token_id`),
   CONSTRAINT `token_blacklist_blacklistedtoken_token_id_3cc7fe56_fk` FOREIGN KEY (`token_id`) REFERENCES `token_blacklist_outstandingtoken` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -967,7 +1135,16 @@ INSERT INTO `token_blacklist_blacklistedtoken` VALUES
 (4,'2026-07-06 07:15:11.189125',8),
 (6,'2026-07-06 07:56:42.851079',19),
 (7,'2026-07-06 08:39:29.266427',20),
-(8,'2026-07-06 11:11:26.109310',24);
+(8,'2026-07-06 11:11:26.109310',24),
+(13,'2026-07-07 00:41:33.525504',31),
+(16,'2026-07-07 02:11:12.978136',34),
+(18,'2026-07-07 03:15:11.691323',35),
+(19,'2026-07-07 03:40:09.299951',36),
+(20,'2026-07-07 04:24:15.963101',37),
+(21,'2026-07-07 05:31:59.280243',39),
+(22,'2026-07-07 07:50:27.349152',41),
+(24,'2026-07-07 08:24:47.144739',42),
+(26,'2026-07-07 08:55:49.248648',43);
 /*!40000 ALTER TABLE `token_blacklist_blacklistedtoken` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -991,7 +1168,7 @@ CREATE TABLE `token_blacklist_outstandingtoken` (
   UNIQUE KEY `token_blacklist_outstandingtoken_jti_hex_d9bdf6f7_uniq` (`jti`),
   KEY `token_blacklist_outs_user_id_83bc629a_fk_accounts_` (`user_id`),
   CONSTRAINT `token_blacklist_outs_user_id_83bc629a_fk_accounts_` FOREIGN KEY (`user_id`) REFERENCES `accounts_person` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=31 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=45 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -1026,7 +1203,19 @@ INSERT INTO `token_blacklist_outstandingtoken` VALUES
 (22,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4MzkzMTU2NywiaWF0IjoxNzgzMzI2NzY3LCJqdGkiOiIyMzllODc4YjJjOGU0MGU3YTBiMmFiNTJiMTZhNmYzOCIsInVzZXJfaWQiOjF9.skLXQSJcmtkgPnbSAjGht2-1ahNBxzruSc-7kybsjuE','2026-07-06 08:32:47.127693','2026-07-13 08:32:47.000000',1,'239e878b2c8e40e7a0b2ab52b16a6f38'),
 (23,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4MzkzMTk4MCwiaWF0IjoxNzgzMzI3MTgwLCJqdGkiOiJhNTY2NDU0OGViNDg0NGEzYTlhNTIzYTI4MDBhZjI1ZiIsInVzZXJfaWQiOjF9.Qo657xWKUSKhavyAF_172r56nGNfsuzhWN_CBaezG-U','2026-07-06 08:39:40.960986','2026-07-13 08:39:40.000000',1,'a5664548eb4844a3a9a523a2800af25f'),
 (24,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4MzYwMTU1NSwiaWF0IjoxNzgyOTk2NzU1LCJqdGkiOiJiN2EyNmNhZDRkYWM0NzhkYjhkZDRiYjY0ZGRhZmIwNiIsInVzZXJfaWQiOjd9.3G4-m4aOvfjGnXZfgJRNwUbgXaRuKFrzjUTClvojkS8',NULL,'2026-07-09 12:52:35.000000',NULL,'b7a26cad4dac478db8dd4bb64ddafb06'),
-(30,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4Mzk0MTExMCwiaWF0IjoxNzgzMzM2MzEwLCJqdGkiOiIwMzI4OTY5ZTQxNmE0YmJhYmVmMTY2Nzg1MGI1MmEyYiIsInVzZXJfaWQiOjF9.t2x3wufEb7jnu01Xcmtpc5TUiTK4IDrha0FMZO3iXQQ','2026-07-06 11:11:50.394029','2026-07-13 11:11:50.000000',1,'0328969e416a4bbabef1667850b52a2b');
+(30,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4Mzk0MTExMCwiaWF0IjoxNzgzMzM2MzEwLCJqdGkiOiIwMzI4OTY5ZTQxNmE0YmJhYmVmMTY2Nzg1MGI1MmEyYiIsInVzZXJfaWQiOjF9.t2x3wufEb7jnu01Xcmtpc5TUiTK4IDrha0FMZO3iXQQ','2026-07-06 11:11:50.394029','2026-07-13 11:11:50.000000',1,'0328969e416a4bbabef1667850b52a2b'),
+(31,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4MzkzNDIzOSwiaWF0IjoxNzgzMzI5NDM5LCJqdGkiOiJiZDlkNzZhMDEyMGY0OTUwODExYWQwNTljNDVmN2IxYSIsInVzZXJfaWQiOjF9.aZpG0iIt6wD-RRgrtyGbPM-4esLQUJiZVToQVHbKU9M',NULL,'2026-07-13 09:17:19.000000',NULL,'bd9d76a0120f4950811ad059c45f7b1a'),
+(34,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4Mzk5MzIzMiwiaWF0IjoxNzgzMzg4NDMyLCJqdGkiOiJjYjJjNzJlYzQ2YmM0NTNlODFiNzRkNmQ3ZjA1MmUwOCIsInVzZXJfaWQiOjF9.md4CpaN7a-p9woP31GaLpSKMT8ku8gK15dCp-5ACIls','2026-07-07 01:40:32.715117','2026-07-14 01:40:32.000000',1,'cb2c72ec46bc453e81b74d6d7f052e08'),
+(35,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4Mzk5NTU3OCwiaWF0IjoxNzgzMzkwNzc4LCJqdGkiOiI1ODhlZTAwMTMwY2E0YjY5OWI2NTYwYTBiMmQxYjgxOSIsInVzZXJfaWQiOjF9.p7NRpxUDJqAz46EmOX8Eau9H_Catr-0rDWSfcaCvMQ0','2026-07-07 02:19:38.333083','2026-07-14 02:19:38.000000',1,'588ee00130ca4b699b6560a0b2d1b819'),
+(36,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4Mzk5OTQxMywiaWF0IjoxNzgzMzk0NjEzLCJqdGkiOiI0M2MzZDRmYjk5Mzc0ZTBmYTM2NjU2ZWY1OGY3NjQ3ZCIsInVzZXJfaWQiOjF9.Jkyp9y-m3JtPd7n8dtIqqQGSlEOOd-Z9L2inXzU2rIg','2026-07-07 03:23:33.504112','2026-07-14 03:23:33.000000',1,'43c3d4fb99374e0fa36656ef58f7647d'),
+(37,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4NDAwMDQyMiwiaWF0IjoxNzgzMzk1NjIyLCJqdGkiOiI0Mjk1NTIzMTIwNjY0ZGY5YmM3MTc0MjIwYjQyYzdhZiIsInVzZXJfaWQiOjF9.ZB18HRnS_tsGcshmjxfMWJrEySiVXHTOEuyGv_XSy_M','2026-07-07 03:40:22.788588','2026-07-14 03:40:22.000000',1,'4295523120664df9bc7174220b42c7af'),
+(38,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4NDAwMjAzOSwiaWF0IjoxNzgzMzk3MjM5LCJqdGkiOiIxODU0YWM3ZTJlZjU0ZmQ5YmQ4ZDBhZjEwY2VkOTlkZCIsInVzZXJfaWQiOjh9.DQ8B8fb99MDtAT0_NztIGbbSdZf-8aq94oqMJiVOtLY','2026-07-07 04:07:19.579169','2026-07-14 04:07:19.000000',8,'1854ac7e2ef54fd9bd8d0af10ced99dd'),
+(39,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4NDAwMzA4MywiaWF0IjoxNzgzMzk4MjgzLCJqdGkiOiIwYjg2OTg0NzdhNjM0YzRmYTVlNTUzMTc0NzU4OWFkYyIsInVzZXJfaWQiOjF9.gd7tJ_fzBvMMuBiOTkdYnFfpq-MamoPtc8h5dxVZFYg','2026-07-07 04:24:43.602586','2026-07-14 04:24:43.000000',1,'0b8698477a634c4fa5e5531747589adc'),
+(40,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4NDAwNjM5MSwiaWF0IjoxNzgzNDAxNTkxLCJqdGkiOiJiNzY3ZWExY2VhODg0ZWFiODUxMWE2OGUxNjkxYWUwYyIsInVzZXJfaWQiOjh9.k3pJuuk7CY8loiayY6vbU47AGXgNEcTiVM9E2W5U-Rc','2026-07-07 05:19:51.279592','2026-07-14 05:19:51.000000',8,'b767ea1cea884eab8511a68e1691ae0c'),
+(41,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4NDAwOTgxOCwiaWF0IjoxNzgzNDA1MDE4LCJqdGkiOiIzNDQyMzFlMWJjMTE0MzBjOGEwZmNlYzkwYTNmMjBjZSIsInVzZXJfaWQiOjF9.j-QQXHFyuRApHFTmj08JIkvhrKL7rrDbg1GEX7dot1Q','2026-07-07 06:16:58.168692','2026-07-14 06:16:58.000000',1,'344231e1bc11430c8a0fcec90a3f20ce'),
+(42,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4NDAxNTQ0MywiaWF0IjoxNzgzNDEwNjQzLCJqdGkiOiJlNjdjODY4NjQzZDY0NzhiOWVkNDRkMzBiMDBjN2EzNSIsInVzZXJfaWQiOjF9.4cK-kcr6UKXxAV2hYhGmJFhD3WZvNrN6qUNH8Q06z3o','2026-07-07 07:50:43.415674','2026-07-14 07:50:43.000000',1,'e67c868643d6478b9ed44d30b00c7a35'),
+(43,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4NDAxNzUwMiwiaWF0IjoxNzgzNDEyNzAyLCJqdGkiOiJhYjc2MTI0YjIzZTE0NzNmYjVmMTA2ZTdjMzBmOTQ2ZSIsInVzZXJfaWQiOjF9.PmYmT6I5dSFUkf4U9C_orHWXAYDuKzZ4LlMXiY4Bu-4','2026-07-07 08:25:02.421755','2026-07-14 08:25:02.000000',1,'ab76124b23e1473fb5f106e7c30f946e'),
+(44,'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc4NDAyMTA4NywiaWF0IjoxNzgzNDE2Mjg3LCJqdGkiOiI2ZjcxYjdiOWU4Njc0YzVkOGEyYWFlZjkzOTA5OTFjOCIsInVzZXJfaWQiOjh9.s-qUW50kzqLkgCQ0PpQnlgc31t2ru2DrWXT273aY9ho','2026-07-07 09:24:47.234855','2026-07-14 09:24:47.000000',8,'6f71b7b9e8674c5d8a2aaef9390991c8');
 /*!40000 ALTER TABLE `token_blacklist_outstandingtoken` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -1045,4 +1234,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-07-06 21:03:13
+-- Dump completed on 2026-07-07  9:41:36
