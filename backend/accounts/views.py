@@ -1,15 +1,16 @@
 from django.contrib.auth import get_user_model
+from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from products.models import Combo, Product
+from products.models import Brand, Combo, Product
 from products.serializers import BrandSerializer, ComboSerializer, ProductSerializer
 
-from .permissions import IsFranchiseMasterRole, IsSuperUser
+from .permissions import IsFranchiseMasterRole, IsStoreOwnerRole, IsSuperUser
 from .serializers import (
     AccountAdminSerializer,
     BrandWithProductsSerializer,
@@ -182,6 +183,16 @@ class ManagementDashboardView(APIView):
         )
 
 
+class _ProtectedAccountDestroyMixin:
+    """刪除帳號時，若該帳號仍有訂單紀錄(Order.user 為 PROTECT)則拒絕刪除並提示原因"""
+
+    def perform_destroy(self, instance):
+        try:
+            instance.delete()
+        except ProtectedError:
+            raise ValidationError("此帳號已有訂單紀錄，無法刪除")
+
+
 class BrandOwnerListCreateView(generics.ListCreateAPIView):
     """superuser 新增/列出品牌主帳號"""
 
@@ -193,8 +204,8 @@ class BrandOwnerListCreateView(generics.ListCreateAPIView):
         serializer.save(level=Person.Level.BRAND_OWNER)
 
 
-class BrandOwnerDetailView(generics.RetrieveUpdateAPIView):
-    """superuser 維護單一品牌主帳號(可重設密碼)"""
+class BrandOwnerDetailView(_ProtectedAccountDestroyMixin, generics.RetrieveUpdateDestroyAPIView):
+    """superuser 維護單一品牌主帳號(可重設密碼/刪除)"""
 
     serializer_class = AccountAdminSerializer
     permission_classes = [IsSuperUser]
@@ -212,12 +223,25 @@ class FranchiseMasterListCreateView(generics.ListCreateAPIView):
         serializer.save(level=Person.Level.FRANCHISE_MASTER)
 
 
-class FranchiseMasterDetailView(generics.RetrieveUpdateAPIView):
-    """superuser 維護單一加盟主帳號(可重設密碼)"""
+class FranchiseMasterDetailView(_ProtectedAccountDestroyMixin, generics.RetrieveUpdateDestroyAPIView):
+    """superuser 維護單一加盟主帳號(可重設密碼/刪除)"""
 
     serializer_class = AccountAdminSerializer
     permission_classes = [IsSuperUser]
     queryset = Person.objects.filter(level=Person.Level.FRANCHISE_MASTER)
+
+
+class FranchiseMasterBrandsView(APIView):
+    """superuser 指定某加盟主最多可加盟(掛載)哪些產品品牌；加盟主本人再從此範圍決定其門市各自要掛載哪些"""
+
+    permission_classes = [IsSuperUser]
+
+    def put(self, request, pk):
+        master = get_object_or_404(Person, pk=pk, level=Person.Level.FRANCHISE_MASTER)
+        brand_ids = request.data.get("franchised_brands", [])
+        brands = Brand.objects.filter(id__in=brand_ids, brand_type=Brand.BrandType.PRODUCT_BRAND)
+        master.franchised_brands.set(brands)
+        return Response({"franchised_brands": list(master.franchised_brands.values_list("id", flat=True))})
 
 
 class StoreOwnerListCreateView(generics.ListCreateAPIView):
@@ -249,8 +273,8 @@ class StoreOwnerListCreateView(generics.ListCreateAPIView):
             serializer.save(level=Person.Level.STORE_OWNER, manager=self.request.user)
 
 
-class StoreOwnerDetailView(generics.RetrieveUpdateAPIView):
-    """維護單一店主帳號(僅該店主的加盟主本人或 superuser，可重設密碼)"""
+class StoreOwnerDetailView(_ProtectedAccountDestroyMixin, generics.RetrieveUpdateDestroyAPIView):
+    """維護單一店主帳號(僅該店主的加盟主本人或 superuser，可重設密碼/刪除)"""
 
     serializer_class = AccountAdminSerializer
     permission_classes = [IsFranchiseMasterRole]
@@ -259,3 +283,51 @@ class StoreOwnerDetailView(generics.RetrieveUpdateAPIView):
         if self.request.user.is_superuser:
             return Person.objects.filter(level=Person.Level.STORE_OWNER)
         return self.request.user.managed_store_owners.all()
+
+
+def _resolve_clerk_store(request):
+    """依角色解析要操作的門市：店主一律用自己名下的門市，
+    superuser 需用 ?owner_id= 指定要操作哪個店主的門市"""
+    if request.user.is_superuser:
+        owner_id = request.query_params.get("owner_id")
+        owner = (
+            Person.objects.filter(id=owner_id, level=Person.Level.STORE_OWNER).first()
+            if owner_id
+            else None
+        )
+        return getattr(owner, "owned_brand", None) if owner else None
+    return getattr(request.user, "owned_brand", None)
+
+
+class StoreClerkListCreateView(generics.ListCreateAPIView):
+    """店主新增/列出自己門市的店員帳號(superuser 可用 ?owner_id= 指定要操作哪個店主的門市)"""
+
+    serializer_class = AccountAdminSerializer
+    permission_classes = [IsStoreOwnerRole]
+
+    def get_queryset(self):
+        store = _resolve_clerk_store(self.request)
+        if not store:
+            return Person.objects.none()
+        return Person.objects.filter(level=Person.Level.STORE_CLERK, employer_brand=store)
+
+    def perform_create(self, serializer):
+        store = _resolve_clerk_store(self.request)
+        if not store:
+            raise PermissionDenied("尚未擁有門市，或 superuser 需用 ?owner_id= 指定店主")
+        serializer.save(level=Person.Level.STORE_CLERK, employer_brand=store)
+
+
+class StoreClerkDetailView(_ProtectedAccountDestroyMixin, generics.RetrieveUpdateDestroyAPIView):
+    """維護單一店員帳號(僅該店員所屬門市的店主本人或 superuser，可重設密碼/刪除)"""
+
+    serializer_class = AccountAdminSerializer
+    permission_classes = [IsStoreOwnerRole]
+
+    def get_queryset(self):
+        if self.request.user.is_superuser:
+            return Person.objects.filter(level=Person.Level.STORE_CLERK)
+        store = getattr(self.request.user, "owned_brand", None)
+        if not store:
+            return Person.objects.none()
+        return Person.objects.filter(level=Person.Level.STORE_CLERK, employer_brand=store)

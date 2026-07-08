@@ -16,29 +16,32 @@ export function AccountManagementPanel({
   title,
   createLabel,
   endpoint,
+  queryParams,
 }: {
   title: string;
   createLabel: string;
   endpoint: string;
+  queryParams?: Record<string, string | number>;
 }) {
   const [accounts, setAccounts] = useState<ManagedAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<ManagedAccountInput>(emptyForm);
-  const [passwordResets, setPasswordResets] = useState<Record<number, string>>({});
+  const [passwordReset, setPasswordReset] = useState("");
+  const [selectedId, setSelectedId] = useState<number | "">("");
 
   async function reload() {
-    const { data } = await api.get<ManagedAccount[]>(endpoint);
+    const { data } = await api.get<ManagedAccount[]>(endpoint, { params: queryParams });
     setAccounts(data);
   }
 
   useEffect(() => {
     reload().finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint]);
+  }, [endpoint, JSON.stringify(queryParams)]);
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault();
-    await api.post(endpoint, form);
+    await api.post(endpoint, form, { params: queryParams });
     setForm(emptyForm);
     await reload();
   }
@@ -49,11 +52,25 @@ export function AccountManagementPanel({
   }
 
   async function handleResetPassword(id: number) {
-    const password = passwordResets[id];
-    if (!password) return;
-    await handleUpdate(id, { password });
-    setPasswordResets((prev) => ({ ...prev, [id]: "" }));
+    if (!passwordReset) return;
+    await handleUpdate(id, { password: passwordReset });
+    setPasswordReset("");
   }
+
+  async function handleDelete(id: number) {
+    if (!window.confirm("確定要刪除此帳號嗎?")) return;
+    try {
+      await api.delete(`${endpoint}${id}/`);
+      setSelectedId("");
+      await reload();
+    } catch (error: any) {
+      const data = error?.response?.data;
+      const message = data?.detail ?? (Array.isArray(data) ? data[0] : data) ?? "刪除失敗，請稍後再試";
+      alert(typeof message === "string" ? message : JSON.stringify(message));
+    }
+  }
+
+  const selectedAccount = accounts.find((a) => a.id === selectedId);
 
   return (
     <div className="erp-panel">
@@ -104,72 +121,93 @@ export function AccountManagementPanel({
         ) : accounts.length === 0 ? (
           <p>尚無帳號</p>
         ) : (
-          <table className="erp-table">
-            <thead>
-              <tr>
-                <th>帳號</th>
-                <th>姓名</th>
-                <th>Email</th>
-                <th>手機</th>
-                <th>電話</th>
-                <th>重設密碼</th>
-              </tr>
-            </thead>
-            <tbody>
-              {accounts.map((account) => (
-                <tr key={account.id}>
-                  <td>{account.username}</td>
-                  <td>
-                    <input
-                      defaultValue={account.name}
-                      onBlur={(e) =>
-                        e.target.value !== account.name &&
-                        handleUpdate(account.id, { name: e.target.value })
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      defaultValue={account.email}
-                      onBlur={(e) =>
-                        e.target.value !== account.email &&
-                        handleUpdate(account.id, { email: e.target.value })
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      defaultValue={account.mobile}
-                      onBlur={(e) =>
-                        e.target.value !== account.mobile &&
-                        handleUpdate(account.id, { mobile: e.target.value })
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      defaultValue={account.phone}
-                      onBlur={(e) =>
-                        e.target.value !== account.phone &&
-                        handleUpdate(account.id, { phone: e.target.value })
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      type="password"
-                      placeholder="新密碼"
-                      value={passwordResets[account.id] ?? ""}
-                      onChange={(e) =>
-                        setPasswordResets((prev) => ({ ...prev, [account.id]: e.target.value }))
-                      }
-                    />
-                    <button onClick={() => handleResetPassword(account.id)}>重設</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="erp-group">
+            <div className="actions">
+              <select
+                value={selectedId}
+                onChange={(e) => {
+                  setSelectedId(e.target.value ? Number(e.target.value) : "");
+                  setPasswordReset("");
+                }}
+              >
+                <option value="">選擇帳號</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.username}（{account.name || "未填姓名"}）
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedAccount && (
+              <table className="erp-table" key={selectedAccount.id}>
+                <thead>
+                  <tr>
+                    <th>帳號</th>
+                    <th>姓名</th>
+                    <th>Email</th>
+                    <th>手機</th>
+                    <th>電話</th>
+                    <th>重設密碼</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>{selectedAccount.username}</td>
+                    <td>
+                      <input
+                        defaultValue={selectedAccount.name}
+                        onBlur={(e) =>
+                          e.target.value !== selectedAccount.name &&
+                          handleUpdate(selectedAccount.id, { name: e.target.value })
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        defaultValue={selectedAccount.email}
+                        onBlur={(e) =>
+                          e.target.value !== selectedAccount.email &&
+                          handleUpdate(selectedAccount.id, { email: e.target.value })
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        defaultValue={selectedAccount.mobile}
+                        onBlur={(e) =>
+                          e.target.value !== selectedAccount.mobile &&
+                          handleUpdate(selectedAccount.id, { mobile: e.target.value })
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        defaultValue={selectedAccount.phone}
+                        onBlur={(e) =>
+                          e.target.value !== selectedAccount.phone &&
+                          handleUpdate(selectedAccount.id, { phone: e.target.value })
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="password"
+                        placeholder="新密碼"
+                        value={passwordReset}
+                        onChange={(e) => setPasswordReset(e.target.value)}
+                      />
+                      <button onClick={() => handleResetPassword(selectedAccount.id)}>重設</button>
+                    </td>
+                    <td>
+                      <button onClick={() => handleDelete(selectedAccount.id)}>刪除</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
+          </div>
         )}
       </div>
     </div>

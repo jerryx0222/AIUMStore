@@ -1,7 +1,8 @@
 from django.contrib.auth import get_user_model
+from django.db.models.deletion import ProtectedError
 from django.utils.text import slugify
 from rest_framework import generics, mixins, viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 
 from accounts.permissions import (
@@ -43,9 +44,15 @@ Person = get_user_model()
 
 
 def _owned_franchise_brands(request):
-    """目前使用者名下的加盟品牌門市(superuser 可看全部)"""
+    """目前使用者可操作的加盟品牌門市：店主看自己名下的門市，
+    加盟主看其管理的所有店主的門市，superuser 可看全部"""
     if request.user.is_superuser:
         return Brand.objects.filter(brand_type=Brand.BrandType.FRANCHISE_BRAND)
+    if request.user.level == Person.Level.FRANCHISE_MASTER:
+        return Brand.objects.filter(
+            brand_type=Brand.BrandType.FRANCHISE_BRAND,
+            owner__in=request.user.managed_store_owners.all(),
+        )
     return Brand.objects.filter(brand_type=Brand.BrandType.FRANCHISE_BRAND, owner=request.user)
 
 
@@ -127,6 +134,30 @@ def _managed_franchise_brands(request):
     )
 
 
+def _franchised_product_brands(request):
+    """加盟主可加盟的產品品牌範圍：由 superuser 指定(見 Person.franchised_brands)，
+    加盟主本人只能從自己已加盟的品牌中，決定其管理的門市各自要掛載哪些"""
+    if request.user.is_superuser:
+        return Brand.objects.filter(brand_type=Brand.BrandType.PRODUCT_BRAND)
+    if request.user.level == Person.Level.FRANCHISE_MASTER:
+        return request.user.franchised_brands.all()
+    return Brand.objects.none()
+
+
+def _enforce_carried_product_brands(request, serializer):
+    """門市掛載的產品品牌是加盟主的權限，不開放店主自行設定：
+    店主操作時一律忽略此欄位；加盟主/superuser 操作時檢查是否都在加盟主已加盟的範圍內"""
+    if "carried_product_brands" not in serializer.validated_data:
+        return
+    if not request.user.is_superuser and request.user.level == Person.Level.STORE_OWNER:
+        serializer.validated_data.pop("carried_product_brands")
+        return
+    carried = serializer.validated_data["carried_product_brands"]
+    allowed_ids = set(_franchised_product_brands(request).values_list("id", flat=True))
+    if any(brand.id not in allowed_ids for brand in carried):
+        raise PermissionDenied("僅能掛載加盟主已加盟(由系統管理員指定)的產品品牌")
+
+
 class BrandViewSet(viewsets.ReadOnlyModelViewSet):
     """品牌列表(含產品品牌與加盟品牌)"""
 
@@ -184,6 +215,12 @@ class CategoryViewSet(viewsets.ModelViewSet):
         else:
             serializer.save()
 
+    def perform_destroy(self, instance):
+        try:
+            instance.delete()
+        except ProtectedError:
+            raise ValidationError("此種類底下仍有產品，請先刪除或搬移產品後再刪除種類")
+
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     """HQ 產品主檔列表(唯讀)，可用 ?category=<slug> 篩選"""
@@ -225,28 +262,58 @@ class StoreListingListView(generics.ListAPIView):
 
 
 class StoreListCreateView(generics.ListCreateAPIView):
-    """列出 / 新增目前使用者名下的門市(加盟品牌)：一個店主唯一經營一間門市"""
+    """列出 / 新增門市(加盟品牌)：店主只能唯一經營一間門市；
+    加盟主可用 ?owner_id= 為其管理的店主新增門市(該店主需尚未擁有門市)"""
 
     serializer_class = BrandSerializer
-    permission_classes = [IsStoreOwnerRole]
+    permission_classes = [IsStoreOwnerRole | IsFranchiseMasterRole]
 
     def get_queryset(self):
         return _owned_franchise_brands(self.request)
 
     def perform_create(self, serializer):
-        if not self.request.user.is_superuser and _owned_franchise_brands(self.request).exists():
+        user = self.request.user
+        _enforce_carried_product_brands(self.request, serializer)
+        if user.is_superuser:
+            serializer.save(brand_type=Brand.BrandType.FRANCHISE_BRAND, owner=user)
+            return
+        if user.level == Person.Level.FRANCHISE_MASTER:
+            owner_id = self.request.query_params.get("owner_id")
+            owner = user.managed_store_owners.filter(
+                id=owner_id, owned_brand__isnull=True
+            ).first()
+            if not owner:
+                raise PermissionDenied("需用 ?owner_id= 指定一位尚未擁有門市、且由你管理的店主")
+            serializer.save(brand_type=Brand.BrandType.FRANCHISE_BRAND, owner=owner)
+            return
+        if _owned_franchise_brands(self.request).exists():
             raise PermissionDenied("店主僅能唯一經營一間門市，已有門市則不可再新增")
-        serializer.save(brand_type=Brand.BrandType.FRANCHISE_BRAND, owner=self.request.user)
+        serializer.save(brand_type=Brand.BrandType.FRANCHISE_BRAND, owner=user)
 
 
 class StoreDetailView(generics.RetrieveUpdateAPIView):
-    """查詢 / 修改名下的某一間門市(加盟品牌)"""
+    """查詢 / 修改門市(加盟品牌)：店主管理自己名下的門市，加盟主可管理其管理的店主的門市"""
 
     serializer_class = BrandSerializer
-    permission_classes = [IsStoreOwnerRole]
+    permission_classes = [IsStoreOwnerRole | IsFranchiseMasterRole]
 
     def get_queryset(self):
         return _owned_franchise_brands(self.request)
+
+    def perform_update(self, serializer):
+        _enforce_carried_product_brands(self.request, serializer)
+        serializer.save()
+
+
+class FranchisableBrandListView(generics.ListAPIView):
+    """列出加盟主自己已加盟的產品品牌(由 superuser 指定，見 franchised_brands)：
+    加盟主決定其管理的門市要掛載哪些，此範圍不開放店主查詢/選擇"""
+
+    serializer_class = BrandSerializer
+    permission_classes = [IsFranchiseMasterRole]
+
+    def get_queryset(self):
+        return _franchised_product_brands(self.request)
 
 
 class ProductBrandListCreateView(generics.ListCreateAPIView):
@@ -270,14 +337,20 @@ class ProductBrandListCreateView(generics.ListCreateAPIView):
         serializer.save(brand_type=Brand.BrandType.PRODUCT_BRAND, owner=owner)
 
 
-class ProductBrandDetailView(generics.RetrieveUpdateAPIView):
-    """superuser 維護單一產品品牌：可編輯所有欄位，含指派/更換品牌主"""
+class ProductBrandDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """superuser 維護單一產品品牌：可編輯所有欄位，含指派/更換品牌主；可刪除(底下仍有種類/產品時不可刪除)"""
 
     serializer_class = BrandAdminSerializer
     permission_classes = [IsSuperUser]
 
     def get_queryset(self):
         return Brand.objects.filter(brand_type=Brand.BrandType.PRODUCT_BRAND)
+
+    def perform_destroy(self, instance):
+        try:
+            instance.delete()
+        except ProtectedError:
+            raise ValidationError("此品牌底下仍有種類或產品，請先刪除或搬移後再刪除品牌")
 
 
 class ManagedStoreListingViewSet(viewsets.ModelViewSet):
@@ -331,6 +404,12 @@ class ManagedProductViewSet(viewsets.ModelViewSet):
         if not brand:
             raise PermissionDenied("尚未擁有產品品牌，或 superuser 需用 ?brand_id= 指定產品品牌")
         serializer.save(product_brand=brand)
+
+    def perform_destroy(self, instance):
+        try:
+            instance.delete()
+        except ProtectedError:
+            raise ValidationError("此產品仍被套餐使用，請先從套餐中移除後再刪除產品")
 
 
 class ManagedProductImageViewSet(

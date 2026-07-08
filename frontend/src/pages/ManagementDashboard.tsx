@@ -26,6 +26,12 @@ const emptyCategoryForm = {
   description: "",
 };
 
+function alertApiError(error: any) {
+  const data = error?.response?.data;
+  const message = data?.detail ?? (Array.isArray(data) ? data[0] : data) ?? "操作失敗，請稍後再試";
+  alert(typeof message === "string" ? message : JSON.stringify(message));
+}
+
 export function ManagementDashboardPage() {
   const { user } = useAuth();
   const [data, setData] = useState<ManagementDashboard | null>(null);
@@ -46,6 +52,11 @@ export function ManagementDashboardPage() {
   const [newCategoryForms, setNewCategoryForms] = useState<Record<number, typeof emptyCategoryForm>>(
     {}
   );
+  const [selectedProductBrandId, setSelectedProductBrandId] = useState<number | "">("");
+  const [selectedFranchiseMasterId, setSelectedFranchiseMasterId] = useState<number | "">("");
+  const [selectedCategorySlug, setSelectedCategorySlug] = useState<Record<number, string>>({});
+  const [selectedProductId, setSelectedProductId] = useState<Record<number, number | "">>({});
+  const [selectedComboId, setSelectedComboId] = useState<Record<number, number | "">>({});
 
   async function loadCategoriesForBrand(brandId: number) {
     const { data } = await api.get<Category[]>("/products/categories/", {
@@ -113,9 +124,15 @@ export function ManagementDashboardPage() {
     await loadCategoriesForBrand(brandId);
   }
 
-  async function handleDeleteCategory(brandId: number, slug: string) {
-    await api.delete(`/products/categories/${slug}/`);
-    await loadCategoriesForBrand(brandId);
+  async function handleDeleteCategory(brandOwnerId: number, brandId: number, slug: string) {
+    if (!window.confirm("確定要刪除此種類嗎?")) return;
+    try {
+      await api.delete(`/products/categories/${slug}/`);
+      setSelectedCategorySlug((prev) => ({ ...prev, [brandOwnerId]: "" }));
+      await loadCategoriesForBrand(brandId);
+    } catch (error: any) {
+      alertApiError(error);
+    }
   }
 
   async function handleCreateBrand(event: FormEvent) {
@@ -158,6 +175,35 @@ export function ManagementDashboardPage() {
     await reload();
   }
 
+  async function handleDeleteProductBrand(brandId: number) {
+    if (!window.confirm("確定要刪除此品牌嗎?")) return;
+    try {
+      await api.delete(`/products/product-brands/${brandId}/`);
+      setSelectedProductBrandId("");
+      await reload();
+    } catch (error: any) {
+      alertApiError(error);
+    }
+  }
+
+  async function handleToggleFranchisedBrand(
+    franchiseMasterId: number,
+    currentIds: number[],
+    brandId: number
+  ) {
+    const franchised_brands = currentIds.includes(brandId)
+      ? currentIds.filter((id) => id !== brandId)
+      : [...currentIds, brandId];
+    try {
+      await api.put(`/accounts/franchise-masters/${franchiseMasterId}/franchised-brands/`, {
+        franchised_brands,
+      });
+      await reload();
+    } catch (error: any) {
+      alertApiError(error);
+    }
+  }
+
   function canEditBrand(group: BrandOwnerGroup) {
     return !!user && (user.is_superuser || user.id === group.brand_owner.id);
   }
@@ -190,9 +236,15 @@ export function ManagementDashboardPage() {
     await reload();
   }
 
-  async function handleDeleteProduct(productId: number) {
-    await api.delete(`/products/my-products/${productId}/`);
-    await reload();
+  async function handleDeleteProduct(brandOwnerId: number, productId: number) {
+    if (!window.confirm("確定要刪除此產品嗎?")) return;
+    try {
+      await api.delete(`/products/my-products/${productId}/`);
+      setSelectedProductId((prev) => ({ ...prev, [brandOwnerId]: "" }));
+      await reload();
+    } catch (error: any) {
+      alertApiError(error);
+    }
   }
 
   async function handleUploadImage(productId: number, file: File) {
@@ -232,9 +284,15 @@ export function ManagementDashboardPage() {
     await reload();
   }
 
-  async function handleDeleteCombo(comboId: number) {
-    await api.delete(`/products/my-combos/${comboId}/`);
-    await reload();
+  async function handleDeleteCombo(brandOwnerId: number, comboId: number) {
+    if (!window.confirm("確定要刪除此套餐嗎?")) return;
+    try {
+      await api.delete(`/products/my-combos/${comboId}/`);
+      setSelectedComboId((prev) => ({ ...prev, [brandOwnerId]: "" }));
+      await reload();
+    } catch (error: any) {
+      alertApiError(error);
+    }
   }
 
   async function handleUploadComboImage(comboId: number, file: File) {
@@ -349,88 +407,114 @@ export function ManagementDashboardPage() {
             {productBrands.length === 0 ? (
               <p>尚無品牌</p>
             ) : (
-              <table className="erp-table">
-                <thead>
-                  <tr>
-                    <th>圖標</th>
-                    <th>中文名</th>
-                    <th>英文名</th>
-                    <th>網址</th>
-                    <th>備註</th>
-                    <th>品牌主</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {productBrands.map((brand) => (
-                    <tr key={brand.id}>
-                      <td>
-                        {brand.icon && (
-                          <img src={brand.icon} alt="" style={{ height: "28px" }} />
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleUploadBrandIcon(brand.id, file);
-                          }}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          defaultValue={brand.name_zh}
-                          onBlur={(e) =>
-                            e.target.value !== brand.name_zh &&
-                            handleUpdateProductBrand(brand.id, { name_zh: e.target.value })
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          defaultValue={brand.name_en}
-                          onBlur={(e) =>
-                            e.target.value !== brand.name_en &&
-                            handleUpdateProductBrand(brand.id, { name_en: e.target.value })
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          defaultValue={brand.website}
-                          onBlur={(e) =>
-                            e.target.value !== brand.website &&
-                            handleUpdateProductBrand(brand.id, { website: e.target.value })
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          defaultValue={brand.note}
-                          onBlur={(e) =>
-                            e.target.value !== brand.note &&
-                            handleUpdateProductBrand(brand.id, { note: e.target.value })
-                          }
-                        />
-                      </td>
-                      <td>
-                        <select
-                          defaultValue={brand.owner ?? ""}
-                          onChange={(e) => handleReassignBrandOwner(brand.id, e.target.value)}
-                        >
-                          <option value="">未指派</option>
-                          {data.brand_owners
-                            .filter((g) => !g.brand || g.brand.id === brand.id)
-                            .map((g) => (
-                              <option key={g.brand_owner.id} value={g.brand_owner.id}>
-                                {g.brand_owner.name || g.brand_owner.username}
-                              </option>
-                            ))}
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="erp-group">
+                <div className="actions">
+                  <select
+                    value={selectedProductBrandId}
+                    onChange={(e) =>
+                      setSelectedProductBrandId(e.target.value ? Number(e.target.value) : "")
+                    }
+                  >
+                    <option value="">選擇品牌</option>
+                    {productBrands.map((brand) => (
+                      <option key={brand.id} value={brand.id}>
+                        {brand.name_zh || brand.name_en}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {(() => {
+                  const brand = productBrands.find((b) => b.id === selectedProductBrandId);
+                  if (!brand) return null;
+                  return (
+                    <table className="erp-table" key={brand.id}>
+                      <thead>
+                        <tr>
+                          <th>圖標</th>
+                          <th>中文名</th>
+                          <th>英文名</th>
+                          <th>網址</th>
+                          <th>備註</th>
+                          <th>品牌主</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>
+                            {brand.icon && (
+                              <img src={brand.icon} alt="" style={{ height: "28px" }} />
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleUploadBrandIcon(brand.id, file);
+                              }}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              defaultValue={brand.name_zh}
+                              onBlur={(e) =>
+                                e.target.value !== brand.name_zh &&
+                                handleUpdateProductBrand(brand.id, { name_zh: e.target.value })
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              defaultValue={brand.name_en}
+                              onBlur={(e) =>
+                                e.target.value !== brand.name_en &&
+                                handleUpdateProductBrand(brand.id, { name_en: e.target.value })
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              defaultValue={brand.website}
+                              onBlur={(e) =>
+                                e.target.value !== brand.website &&
+                                handleUpdateProductBrand(brand.id, { website: e.target.value })
+                              }
+                            />
+                          </td>
+                          <td>
+                            <input
+                              defaultValue={brand.note}
+                              onBlur={(e) =>
+                                e.target.value !== brand.note &&
+                                handleUpdateProductBrand(brand.id, { note: e.target.value })
+                              }
+                            />
+                          </td>
+                          <td>
+                            <select
+                              defaultValue={brand.owner ?? ""}
+                              onChange={(e) => handleReassignBrandOwner(brand.id, e.target.value)}
+                            >
+                              <option value="">未指派</option>
+                              {data.brand_owners
+                                .filter((g) => !g.brand || g.brand.id === brand.id)
+                                .map((g) => (
+                                  <option key={g.brand_owner.id} value={g.brand_owner.id}>
+                                    {g.brand_owner.name || g.brand_owner.username}
+                                  </option>
+                                ))}
+                            </select>
+                          </td>
+                          <td>
+                            <button onClick={() => handleDeleteProductBrand(brand.id)}>刪除</button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  );
+                })()}
+              </div>
             )}
           </div>
         </div>
@@ -452,37 +536,85 @@ export function ManagementDashboardPage() {
         />
       )}
 
+      {user?.is_superuser && data.franchise_masters.length > 0 && (
+        <div className="erp-panel">
+          <div className="erp-panel-title">加盟主可加盟品牌</div>
+          <div className="erp-panel-body">
+            <p>指定每位加盟主最多可加盟哪些產品品牌；加盟主再從此範圍決定其管理的門市各自要掛載哪些。</p>
+            <div className="actions">
+              <select
+                value={selectedFranchiseMasterId}
+                onChange={(e) =>
+                  setSelectedFranchiseMasterId(e.target.value ? Number(e.target.value) : "")
+                }
+              >
+                <option value="">選擇加盟主</option>
+                {data.franchise_masters.map((group) => (
+                  <option key={group.franchise_master.id} value={group.franchise_master.id}>
+                    {group.franchise_master.name || group.franchise_master.username}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {(() => {
+              const group = data.franchise_masters.find(
+                (g) => g.franchise_master.id === selectedFranchiseMasterId
+              );
+              if (!group) return null;
+              const franchisedIds = group.franchised_brands.map((b) => b.id);
+              return (
+                <fieldset style={{ marginTop: "0.5rem" }}>
+                  <legend>可加盟的產品品牌</legend>
+                  {productBrands.length === 0 ? (
+                    <p>尚無產品品牌</p>
+                  ) : (
+                    productBrands.map((brand) => (
+                      <label key={brand.id} style={{ display: "block" }}>
+                        <input
+                          type="checkbox"
+                          checked={franchisedIds.includes(brand.id)}
+                          onChange={() =>
+                            handleToggleFranchisedBrand(
+                              group.franchise_master.id,
+                              franchisedIds,
+                              brand.id
+                            )
+                          }
+                        />
+                        {brand.name_zh || brand.name_en}
+                      </label>
+                    ))
+                  )}
+                </fieldset>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
       {data.store_clerks.length > 0 && (
         <div className="erp-panel">
           <div className="erp-panel-title">店員資料</div>
           <div className="erp-panel-body">
-            {data.store_clerks.map((group) => (
-              <div key={group.store_owner.id} className="erp-group">
-                <div className="erp-group-title">
-                  {group.store_name ?? group.store_owner.name ?? group.store_owner.username} 的店員
+            {data.store_clerks.map((group) =>
+              group.store_name ? (
+                <AccountManagementPanel
+                  key={group.store_owner.id}
+                  title={`${group.store_name} 的店員`}
+                  createLabel="新增店員"
+                  endpoint="/accounts/store-clerks/"
+                  queryParams={{ owner_id: group.store_owner.id }}
+                />
+              ) : (
+                <div key={group.store_owner.id} className="erp-group">
+                  <div className="erp-group-title">
+                    {group.store_owner.name || group.store_owner.username} 的店員
+                  </div>
+                  <p>尚未建立門市，請先建立門市後再新增店員</p>
                 </div>
-                {group.clerks.length === 0 ? (
-                  <p>尚無店員</p>
-                ) : (
-                  <table className="erp-table">
-                    <thead>
-                      <tr>
-                        <th>姓名</th>
-                        <th>聯絡方式</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.clerks.map((clerk) => (
-                        <tr key={clerk.id}>
-                          <td>{clerk.name || clerk.username}</td>
-                          <td>{clerk.mobile || clerk.phone || "-"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            ))}
+              )
+            )}
           </div>
         </div>
       )}
@@ -618,87 +750,128 @@ export function ManagementDashboardPage() {
                     <div className="erp-group-title">種類</div>
                     {brandCategories.length === 0 ? (
                       <p>尚無種類</p>
-                    ) : (
+                    ) : !canEditBrand(group) ? (
                       <table className="erp-table">
                         <thead>
                           <tr>
                             <th>名稱</th>
                             <th>子種類</th>
                             <th>說明</th>
-                            <th></th>
                           </tr>
                         </thead>
                         <tbody>
-                          {brandCategories.map((category) =>
-                            canEditBrand(group) ? (
-                              <tr key={category.id}>
-                                <td>
-                                  <input
-                                    defaultValue={category.name}
-                                    onBlur={(e) =>
-                                      e.target.value !== category.name &&
-                                      handleUpdateCategory(group.brand!.id, category.slug, {
-                                        name: e.target.value,
-                                      })
-                                    }
-                                  />
-                                </td>
-                                <td>
-                                  {[1, 2, 3, 4, 5].map((level) => {
-                                    const key = `sub_category_${level}` as
-                                      | "sub_category_1"
-                                      | "sub_category_2"
-                                      | "sub_category_3"
-                                      | "sub_category_4"
-                                      | "sub_category_5";
-                                    return (
-                                      <input
-                                        key={level}
-                                        placeholder={`子種類${level}`}
-                                        style={{ width: "5rem", marginRight: "0.25rem" }}
-                                        defaultValue={category[key]}
-                                        onBlur={(e) =>
-                                          e.target.value !== category[key] &&
-                                          handleUpdateCategory(group.brand!.id, category.slug, {
-                                            [key]: e.target.value,
-                                          })
-                                        }
-                                      />
-                                    );
-                                  })}
-                                </td>
-                                <td>
-                                  <input
-                                    defaultValue={category.description}
-                                    onBlur={(e) =>
-                                      e.target.value !== category.description &&
-                                      handleUpdateCategory(group.brand!.id, category.slug, {
-                                        description: e.target.value,
-                                      })
-                                    }
-                                  />
-                                </td>
-                                <td>
-                                  <button
-                                    onClick={() =>
-                                      handleDeleteCategory(group.brand!.id, category.slug)
-                                    }
-                                  >
-                                    刪除
-                                  </button>
-                                </td>
-                              </tr>
-                            ) : (
-                              <tr key={category.id}>
-                                <td>{category.name}</td>
-                                <td>{category.sub_categories.join("、") || "-"}</td>
-                                <td>{category.description || "-"}</td>
-                                <td></td>
-                              </tr>
-                            )
-                          )}
+                          {brandCategories.map((category) => (
+                            <tr key={category.id}>
+                              <td>{category.name}</td>
+                              <td>{category.sub_categories.join("、") || "-"}</td>
+                              <td>{category.description || "-"}</td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
+                    ) : (
+                      <div className="erp-group">
+                        <div className="actions">
+                          <select
+                            value={selectedCategorySlug[group.brand_owner.id] ?? ""}
+                            onChange={(e) =>
+                              setSelectedCategorySlug((prev) => ({
+                                ...prev,
+                                [group.brand_owner.id]: e.target.value,
+                              }))
+                            }
+                          >
+                            <option value="">選擇種類</option>
+                            {brandCategories.map((c) => (
+                              <option key={c.id} value={c.slug}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {(() => {
+                          const category = brandCategories.find(
+                            (c) => c.slug === selectedCategorySlug[group.brand_owner.id]
+                          );
+                          if (!category) return null;
+                          return (
+                            <table className="erp-table" key={category.id}>
+                              <thead>
+                                <tr>
+                                  <th>名稱</th>
+                                  <th>子種類</th>
+                                  <th>說明</th>
+                                  <th></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td>
+                                    <input
+                                      defaultValue={category.name}
+                                      onBlur={(e) =>
+                                        e.target.value !== category.name &&
+                                        handleUpdateCategory(group.brand!.id, category.slug, {
+                                          name: e.target.value,
+                                        })
+                                      }
+                                    />
+                                  </td>
+                                  <td>
+                                    {[1, 2, 3, 4, 5].map((level) => {
+                                      const key = `sub_category_${level}` as
+                                        | "sub_category_1"
+                                        | "sub_category_2"
+                                        | "sub_category_3"
+                                        | "sub_category_4"
+                                        | "sub_category_5";
+                                      return (
+                                        <input
+                                          key={level}
+                                          placeholder={`子種類${level}`}
+                                          style={{ width: "5rem", marginRight: "0.25rem" }}
+                                          defaultValue={category[key]}
+                                          onBlur={(e) =>
+                                            e.target.value !== category[key] &&
+                                            handleUpdateCategory(group.brand!.id, category.slug, {
+                                              [key]: e.target.value,
+                                            })
+                                          }
+                                        />
+                                      );
+                                    })}
+                                  </td>
+                                  <td>
+                                    <input
+                                      defaultValue={category.description}
+                                      onBlur={(e) =>
+                                        e.target.value !== category.description &&
+                                        handleUpdateCategory(group.brand!.id, category.slug, {
+                                          description: e.target.value,
+                                        })
+                                      }
+                                    />
+                                  </td>
+                                  <td>
+                                    <button
+                                      onClick={() =>
+                                        handleDeleteCategory(
+                                          group.brand_owner.id,
+                                          group.brand!.id,
+                                          category.slug
+                                        )
+                                      }
+                                    >
+                                      刪除
+                                    </button>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          );
+                        })()}
+                      </div>
                     )}
 
                     {canEditBrand(group) && (
@@ -810,90 +983,152 @@ export function ManagementDashboardPage() {
 
                 {group.products.length === 0 ? (
                   <p>尚無產品</p>
-                ) : (
+                ) : !canEditBrand(group) ? (
                   <table className="erp-table">
                     <thead>
                       <tr>
                         <th>名稱</th>
-                        <th>規格</th>
-                        <th>製程</th>
-                        <th>建議價格</th>
-                        <th>圖片</th>
-                        <th></th>
+                        <th>種類</th>
+                        <th>價格</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {group.products.map((product) =>
-                        canEditBrand(group) ? (
-                          <tr key={product.id}>
-                            <td>
-                              <input
-                                defaultValue={product.name}
-                                onBlur={(e) =>
-                                  e.target.value !== product.name &&
-                                  handleUpdateProduct(product.id, { name: e.target.value })
-                                }
-                              />
-                            </td>
-                            <td>
-                              <input
-                                defaultValue={product.spec}
-                                onBlur={(e) =>
-                                  e.target.value !== product.spec &&
-                                  handleUpdateProduct(product.id, { spec: e.target.value })
-                                }
-                              />
-                            </td>
-                            <td>
-                              <input
-                                defaultValue={product.process}
-                                onBlur={(e) =>
-                                  e.target.value !== product.process &&
-                                  handleUpdateProduct(product.id, { process: e.target.value })
-                                }
-                              />
-                            </td>
-                            <td>
-                              <input
-                                type="number"
-                                defaultValue={product.suggested_price}
-                                onBlur={(e) =>
-                                  e.target.value !== product.suggested_price &&
-                                  handleUpdateProduct(product.id, {
-                                    suggested_price: e.target.value,
-                                  })
-                                }
-                              />
-                            </td>
-                            <td>
-                              {product.images.map((image) => (
-                                <span key={image.id} style={{ marginRight: "0.5rem" }}>
-                                  <img src={image.image} alt="" style={{ height: "32px" }} />
-                                  <button onClick={() => handleDeleteImage(image.id)}>×</button>
-                                </span>
-                              ))}
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) handleUploadImage(product.id, file);
-                                }}
-                              />
-                            </td>
-                            <td>
-                              <button onClick={() => handleDeleteProduct(product.id)}>刪除</button>
-                            </td>
-                          </tr>
-                        ) : (
-                          <tr key={product.id}>
-                            <td colSpan={5}>{product.name}</td>
-                            <td>NT$ {product.selling_price}</td>
-                          </tr>
-                        )
-                      )}
+                      {group.products.map((product) => (
+                        <tr key={product.id}>
+                          <td>{product.name}</td>
+                          <td>{product.category.name}</td>
+                          <td>NT$ {product.selling_price}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
+                ) : (
+                  <div className="erp-group">
+                    <div className="actions">
+                      <select
+                        value={selectedProductId[group.brand_owner.id] ?? ""}
+                        onChange={(e) =>
+                          setSelectedProductId((prev) => ({
+                            ...prev,
+                            [group.brand_owner.id]: e.target.value ? Number(e.target.value) : "",
+                          }))
+                        }
+                      >
+                        <option value="">選擇產品</option>
+                        {group.products.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {(() => {
+                      const product = group.products.find(
+                        (p) => p.id === selectedProductId[group.brand_owner.id]
+                      );
+                      if (!product) return null;
+                      return (
+                        <table className="erp-table" key={product.id}>
+                          <thead>
+                            <tr>
+                              <th>名稱</th>
+                              <th>種類</th>
+                              <th>規格</th>
+                              <th>製程</th>
+                              <th>建議價格</th>
+                              <th>圖片</th>
+                              <th></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>
+                                <input
+                                  defaultValue={product.name}
+                                  onBlur={(e) =>
+                                    e.target.value !== product.name &&
+                                    handleUpdateProduct(product.id, { name: e.target.value })
+                                  }
+                                />
+                              </td>
+                              <td>
+                                <select
+                                  defaultValue={product.category.id}
+                                  onChange={(e) =>
+                                    handleUpdateProduct(product.id, {
+                                      category: Number(e.target.value),
+                                    })
+                                  }
+                                >
+                                  {brandCategories.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td>
+                                <input
+                                  defaultValue={product.spec}
+                                  onBlur={(e) =>
+                                    e.target.value !== product.spec &&
+                                    handleUpdateProduct(product.id, { spec: e.target.value })
+                                  }
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  defaultValue={product.process}
+                                  onBlur={(e) =>
+                                    e.target.value !== product.process &&
+                                    handleUpdateProduct(product.id, { process: e.target.value })
+                                  }
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  defaultValue={product.suggested_price}
+                                  onBlur={(e) =>
+                                    e.target.value !== product.suggested_price &&
+                                    handleUpdateProduct(product.id, {
+                                      suggested_price: e.target.value,
+                                    })
+                                  }
+                                />
+                              </td>
+                              <td>
+                                {product.images.map((image) => (
+                                  <span key={image.id} style={{ marginRight: "0.5rem" }}>
+                                    <img src={image.image} alt="" style={{ height: "32px" }} />
+                                    <button onClick={() => handleDeleteImage(image.id)}>×</button>
+                                  </span>
+                                ))}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleUploadImage(product.id, file);
+                                  }}
+                                />
+                              </td>
+                              <td>
+                                <button
+                                  onClick={() =>
+                                    handleDeleteProduct(group.brand_owner.id, product.id)
+                                  }
+                                >
+                                  刪除
+                                </button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      );
+                    })()}
+                  </div>
                 )}
 
                 {canEditBrand(group) && group.brand && (
@@ -989,126 +1224,168 @@ export function ManagementDashboardPage() {
                 </div>
                 {group.combos.length === 0 ? (
                   <p>尚無套餐</p>
-                ) : (
+                ) : !canEditBrand(group) ? (
                   <table className="erp-table">
                     <thead>
                       <tr>
                         <th>LOGO</th>
                         <th>名稱</th>
                         <th>套餐內容</th>
-                        <th>建議價格</th>
-                        <th></th>
+                        <th>價格</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {group.combos.map((combo) =>
-                        canEditBrand(group) ? (
-                          <tr key={combo.id}>
-                            <td>
-                              {combo.image && (
-                                <img src={combo.image} alt="" style={{ height: "28px" }} />
-                              )}
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) handleUploadComboImage(combo.id, file);
-                                }}
-                              />
-                            </td>
-                            <td>
-                              <input
-                                defaultValue={combo.name}
-                                onBlur={(e) =>
-                                  e.target.value !== combo.name &&
-                                  handleUpdateCombo(combo.id, { name: e.target.value })
-                                }
-                              />
-                            </td>
-                            <td>
-                              {combo.items.map((item) => (
-                                <div key={item.id} style={{ whiteSpace: "nowrap" }}>
-                                  {item.product.name} x {item.quantity}{" "}
-                                  <button onClick={() => handleDeleteComboItem(item.id)}>×</button>
-                                </div>
-                              ))}
-                              <form
-                                onSubmit={(e) => handleAddComboItem(combo, e)}
-                                className="actions"
-                                style={{ marginTop: "0.35rem" }}
-                              >
-                                <select
-                                  value={getNewComboItemForm(combo.id).product}
-                                  onChange={(e) =>
-                                    setNewComboItemForms((prev) => ({
-                                      ...prev,
-                                      [combo.id]: {
-                                        ...getNewComboItemForm(combo.id),
-                                        product: e.target.value,
-                                      },
-                                    }))
-                                  }
-                                  required
-                                >
-                                  <option value="">選擇產品</option>
-                                  {group.products.map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                      {p.name}
-                                    </option>
-                                  ))}
-                                </select>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  style={{ width: "4rem" }}
-                                  value={getNewComboItemForm(combo.id).quantity}
-                                  onChange={(e) =>
-                                    setNewComboItemForms((prev) => ({
-                                      ...prev,
-                                      [combo.id]: {
-                                        ...getNewComboItemForm(combo.id),
-                                        quantity: e.target.value,
-                                      },
-                                    }))
-                                  }
-                                  required
-                                />
-                                <button type="submit">新增內容</button>
-                              </form>
-                            </td>
-                            <td>
-                              <input
-                                type="number"
-                                defaultValue={combo.suggested_price}
-                                onBlur={(e) =>
-                                  e.target.value !== combo.suggested_price &&
-                                  handleUpdateCombo(combo.id, { suggested_price: e.target.value })
-                                }
-                              />
-                            </td>
-                            <td>
-                              <button onClick={() => handleDeleteCombo(combo.id)}>刪除</button>
-                            </td>
-                          </tr>
-                        ) : (
-                          <tr key={combo.id}>
-                            <td>
-                              {combo.image && (
-                                <img src={combo.image} alt="" style={{ height: "28px" }} />
-                              )}
-                            </td>
-                            <td>{combo.name}</td>
-                            <td>
-                              {combo.items.map((item) => `${item.product.name} x ${item.quantity}`).join("、")}
-                            </td>
-                            <td>NT$ {combo.selling_price}</td>
-                            <td></td>
-                          </tr>
-                        )
-                      )}
+                      {group.combos.map((combo) => (
+                        <tr key={combo.id}>
+                          <td>
+                            {combo.image && (
+                              <img src={combo.image} alt="" style={{ height: "28px" }} />
+                            )}
+                          </td>
+                          <td>{combo.name}</td>
+                          <td>
+                            {combo.items.map((item) => `${item.product.name} x ${item.quantity}`).join("、")}
+                          </td>
+                          <td>NT$ {combo.selling_price}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
+                ) : (
+                  <div className="erp-group">
+                    <div className="actions">
+                      <select
+                        value={selectedComboId[group.brand_owner.id] ?? ""}
+                        onChange={(e) =>
+                          setSelectedComboId((prev) => ({
+                            ...prev,
+                            [group.brand_owner.id]: e.target.value ? Number(e.target.value) : "",
+                          }))
+                        }
+                      >
+                        <option value="">選擇套餐</option>
+                        {group.combos.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {(() => {
+                      const combo = group.combos.find(
+                        (c) => c.id === selectedComboId[group.brand_owner.id]
+                      );
+                      if (!combo) return null;
+                      return (
+                        <table className="erp-table" key={combo.id}>
+                          <thead>
+                            <tr>
+                              <th>LOGO</th>
+                              <th>名稱</th>
+                              <th>套餐內容</th>
+                              <th>建議價格</th>
+                              <th></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td>
+                                {combo.image && (
+                                  <img src={combo.image} alt="" style={{ height: "28px" }} />
+                                )}
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleUploadComboImage(combo.id, file);
+                                  }}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  defaultValue={combo.name}
+                                  onBlur={(e) =>
+                                    e.target.value !== combo.name &&
+                                    handleUpdateCombo(combo.id, { name: e.target.value })
+                                  }
+                                />
+                              </td>
+                              <td>
+                                {combo.items.map((item) => (
+                                  <div key={item.id} style={{ whiteSpace: "nowrap" }}>
+                                    {item.product.name} x {item.quantity}{" "}
+                                    <button onClick={() => handleDeleteComboItem(item.id)}>×</button>
+                                  </div>
+                                ))}
+                                <form
+                                  onSubmit={(e) => handleAddComboItem(combo, e)}
+                                  className="actions"
+                                  style={{ marginTop: "0.35rem" }}
+                                >
+                                  <select
+                                    value={getNewComboItemForm(combo.id).product}
+                                    onChange={(e) =>
+                                      setNewComboItemForms((prev) => ({
+                                        ...prev,
+                                        [combo.id]: {
+                                          ...getNewComboItemForm(combo.id),
+                                          product: e.target.value,
+                                        },
+                                      }))
+                                    }
+                                    required
+                                  >
+                                    <option value="">選擇產品</option>
+                                    {group.products.map((p) => (
+                                      <option key={p.id} value={p.id}>
+                                        {p.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    style={{ width: "4rem" }}
+                                    value={getNewComboItemForm(combo.id).quantity}
+                                    onChange={(e) =>
+                                      setNewComboItemForms((prev) => ({
+                                        ...prev,
+                                        [combo.id]: {
+                                          ...getNewComboItemForm(combo.id),
+                                          quantity: e.target.value,
+                                        },
+                                      }))
+                                    }
+                                    required
+                                  />
+                                  <button type="submit">新增內容</button>
+                                </form>
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  defaultValue={combo.suggested_price}
+                                  onBlur={(e) =>
+                                    e.target.value !== combo.suggested_price &&
+                                    handleUpdateCombo(combo.id, { suggested_price: e.target.value })
+                                  }
+                                />
+                              </td>
+                              <td>
+                                <button
+                                  onClick={() => handleDeleteCombo(group.brand_owner.id, combo.id)}
+                                >
+                                  刪除
+                                </button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      );
+                    })()}
+                  </div>
                 )}
 
                 {canEditBrand(group) && group.brand && (

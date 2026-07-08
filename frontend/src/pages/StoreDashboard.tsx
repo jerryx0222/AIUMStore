@@ -10,7 +10,6 @@ const emptyForm = {
   name_en: "",
   website: "",
   note: "",
-  carried_product_brands: [] as number[],
 };
 
 export function StoreDashboardPage() {
@@ -21,6 +20,7 @@ export function StoreDashboardPage() {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
+    // 僅用於將門市已掛載的產品品牌 id 轉成名稱顯示；是否掛載由加盟主決定，此頁不可編輯
     api
       .get<Brand[]>("/products/brands/")
       .then(({ data }) => setProductBrands(data.filter((b) => b.brand_type === "product_brand")));
@@ -59,18 +59,8 @@ export function StoreDashboardPage() {
       name_en: currentStore.name_en,
       website: currentStore.website,
       note: currentStore.note,
-      carried_product_brands: currentStore.carried_product_brands,
     });
     setEditing(true);
-  }
-
-  function toggleProductBrand(id: number) {
-    setForm((prev) => ({
-      ...prev,
-      carried_product_brands: prev.carried_product_brands.includes(id)
-        ? prev.carried_product_brands.filter((b) => b !== id)
-        : [...prev.carried_product_brands, id],
-    }));
   }
 
   if (loading) return <p>載入中...</p>;
@@ -101,19 +91,7 @@ export function StoreDashboardPage() {
           value={form.note}
           onChange={(e) => setForm({ ...form, note: e.target.value })}
         />
-        <fieldset>
-          <legend>掛載的產品品牌</legend>
-          {productBrands.map((brand) => (
-            <label key={brand.id} style={{ display: "block" }}>
-              <input
-                type="checkbox"
-                checked={form.carried_product_brands.includes(brand.id)}
-                onChange={() => toggleProductBrand(brand.id)}
-              />
-              {brand.name_zh || brand.name_en}
-            </label>
-          ))}
-        </fieldset>
+        <p>掛載的產品品牌由加盟主指定，請洽你的加盟主於「門市管理」頁面設定。</p>
         <div className="actions">
           <button type="submit">{isCreate ? "建立門市" : "儲存"}</button>
           {!isCreate && (

@@ -36,7 +36,21 @@ export function ProductsPage() {
   const [comboListingByCombo, setComboListingByCombo] = useState<
     Record<number, StoreComboListing>
   >({});
+  const [myStore, setMyStore] = useState<Brand | null>(null);
   const cascade = useCategoryCascade(brandCategories);
+
+  useEffect(() => {
+    if (user?.level !== "store_owner") {
+      setMyStore(null);
+      return;
+    }
+    api.get<Brand[]>("/products/stores/").then(({ data }) => setMyStore(data[0] ?? null));
+  }, [user]);
+
+  // 店主登入時，只顯示自己門市已開放(掛載)的品牌，其餘品牌與商品不顯示
+  const openBrandIds =
+    user?.level === "store_owner" ? new Set(myStore?.carried_product_brands ?? []) : null;
+  const visibleBrands = openBrandIds ? brands.filter((b) => openBrandIds.has(b.id)) : brands;
 
   useEffect(() => {
     api.get<Brand[]>("/products/brands/").then(({ data }) => {
@@ -170,10 +184,12 @@ export function ProductsPage() {
     );
   }
 
-  const visibleProducts = viewMode === "combos" ? [] : products;
-  const visibleCombos = viewMode === "combos" || cascade.name === "" ? combos : [];
-  const loading =
-    viewMode === "combos" ? combosLoading : productsLoading || (cascade.name === "" && combosLoading);
+  const filterByOpenBrand = <T extends { product_brand_id: number }>(items: T[]) =>
+    openBrandIds ? items.filter((item) => openBrandIds.has(item.product_brand_id)) : items;
+
+  const visibleProducts = viewMode === "combos" ? [] : filterByOpenBrand(products);
+  const visibleCombos = viewMode === "combos" ? filterByOpenBrand(combos) : [];
+  const loading = viewMode === "combos" ? combosLoading : productsLoading;
 
   return (
     <div>
@@ -189,7 +205,7 @@ export function ProductsPage() {
                 所有品牌
               </button>
             </li>
-            {brands.map((brand) => (
+            {visibleBrands.map((brand) => (
               <li key={brand.id}>
                 <button
                   className={selectedBrandId === brand.id ? "active" : ""}
@@ -238,7 +254,7 @@ export function ProductsPage() {
             <p>載入中...</p>
           ) : selectedBrandId === null ? (
             <div className="brand-groups">
-              {brands
+              {visibleBrands
                 .map((brand) => ({
                   brand,
                   productItems: visibleProducts.filter((p) => p.product_brand_id === brand.id),

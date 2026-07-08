@@ -46,6 +46,8 @@ backend/Dockerfile 加裝 default-mysql-client，讓容器內有 mysqldump/mysql
 docker compose exec backend python db_backup.py export
 docker compose exec backend python db_backup.py import
 
+docker-compose exec backend python manage.py runserver
+
 
 品牌主:
 50嵐:j50:j5012345

@@ -5,6 +5,7 @@ from .views import (
     BrandViewSet,
     CategoryViewSet,
     ComboViewSet,
+    FranchisableBrandListView,
     FranchiseComboListingViewSet,
     FranchiseListingViewSet,
     ManagedComboItemViewSet,
@@ -39,6 +40,11 @@ router.register("", ProductViewSet, basename="product")
 urlpatterns = [
     path("stores/", StoreListCreateView.as_view(), name="store-list"),
     path("stores/<int:pk>/", StoreDetailView.as_view(), name="store-detail"),
+    path(
+        "franchisable-brands/",
+        FranchisableBrandListView.as_view(),
+        name="franchisable-brand-list",
+    ),
     path("store-listings/", StoreListingListView.as_view(), name="store-listing-list"),
     path("combo-store-listings/", StoreComboListingListView.as_view(), name="combo-store-listing-list"),
     path("product-brands/", ProductBrandListCreateView.as_view(), name="product-brand-list"),
